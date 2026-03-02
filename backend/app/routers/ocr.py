@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, File, UploadFile
 
 from app.services.ocr_service import extract_text_from_image, get_ocr_engine
-from app.services.pdf_service import pdf_to_images
+from app.services.pdf_service import pdf_to_images, preprocess_for_ocr
 
 router = APIRouter()
 
@@ -25,9 +25,13 @@ def _run_ocr_sync(tmp_path: str):
     engine = get_engine()
     pages = []
     for i, img in enumerate(images):
+        img = preprocess_for_ocr(img)
         text = extract_text_from_image(engine, img)
         pages.append({"page": i + 1, "text": text})
     return pages
+
+
+MAX_PDF_SIZE_MB = 50
 
 
 @router.post("")
@@ -39,8 +43,11 @@ async def ocr_from_pdf(file: UploadFile = File(...)):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         return {"ok": False, "error": "PDF 파일만 업로드 가능합니다."}
 
+    content = await file.read()
+    if len(content) > MAX_PDF_SIZE_MB * 1024 * 1024:
+        return {"ok": False, "error": f"PDF 크기는 {MAX_PDF_SIZE_MB}MB 이하여야 합니다."}
+
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
 

@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from pdf2image import convert_from_path
-from PIL import Image
+from PIL import Image, ImageEnhance
 
 
 def _get_poppler_path() -> str | None:
@@ -34,6 +34,16 @@ def _get_poppler_path() -> str | None:
                         if bin_path.joinpath("pdftoppm.exe").exists():
                             return str(bin_path)
     return None
+
+
+def preprocess_for_ocr(img: Image.Image) -> Image.Image:
+    """
+    OCR 인식률 개선을 위한 이미지 전처리 (대비·선명도 보정).
+    흐리거나 어두운 스캔본에 효과적. 이미 괜찮은 이미지는 영향 최소화.
+    """
+    img = ImageEnhance.Contrast(img).enhance(1.15)
+    img = ImageEnhance.Sharpness(img).enhance(1.1)
+    return img
 
 
 def _resize_if_large(img: Image.Image, max_side: int) -> Image.Image:

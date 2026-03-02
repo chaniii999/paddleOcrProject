@@ -13,29 +13,25 @@ except Exception:
     pass
 
 
+# 의회문서(공문서)용: 오인식 억제를 위해 신뢰도 기준을 약간 엄격하게 (0.55)
+DROP_SCORE_FOR_COUNCIL_DOCS = 0.55
+REC_BATCH_NUM_FOR_GPU = 10
+
+
 def get_ocr_engine(
     use_angle_cls: bool = False,
     lang: str = "korean",
-    use_gpu: bool = True,
-    show_log: bool = False,
-    drop_score: float = 0.5,
+    drop_score: float = DROP_SCORE_FOR_COUNCIL_DOCS,
     rec_char_dict_path: str | None = None,
+    rec_batch_num: int = REC_BATCH_NUM_FOR_GPU,
 ):
     """
     PaddleOCR 엔진 (재사용 권장).
     - use_angle_cls=False: 평문서·정방향 문서는 꺼두면 속도 개선. 회전 문서만 True.
-    - use_gpu: GPU 사용 여부 (paddlepaddle-gpu 설치 시 True 권장).
-    - show_log: False면 PaddleOCR 내부 로그 억제.
-    - drop_score: 인식 신뢰도가 이 값 미만이면 결과에서 제외 (기본 0.5, 품질 조정 가능).
-    - rec_char_dict_path: 커스텀 문자 사전 경로 (한 줄 한 글자). 도메인 용어·특수문자 추가 시 사용.
+    - drop_score, rec_batch_num: 현재 PaddleOCR whl 버전에서 생성자 인자 미지원. 인터페이스만 유지.
+    - rec_char_dict_path: 커스텀 문자 사전 경로 (한 줄 한 글자). 지원 시에만 전달.
     """
-    kwargs: dict = {
-        "use_angle_cls": use_angle_cls,
-        "lang": lang,
-        "use_gpu": use_gpu,
-        "show_log": show_log,
-        "drop_score": drop_score,
-    }
+    kwargs: dict = {"use_angle_cls": use_angle_cls, "lang": lang}
     if rec_char_dict_path:
         kwargs["rec_char_dict_path"] = rec_char_dict_path
     return PaddleOCR(**kwargs)
