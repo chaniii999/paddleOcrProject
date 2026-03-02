@@ -39,10 +39,12 @@ def _get_poppler_path() -> str | None:
 def preprocess_for_ocr(img: Image.Image) -> Image.Image:
     """
     OCR 인식률 개선을 위한 이미지 전처리 (대비·선명도 보정).
-    흐리거나 어두운 스캔본에 효과적. 이미 괜찮은 이미지는 영향 최소화.
+    흐리거나 어두운 스캔본·연속 페이지에 효과적. RGB로 통일해 PaddleOCR 입력 안정화.
     """
-    img = ImageEnhance.Contrast(img).enhance(1.15)
-    img = ImageEnhance.Sharpness(img).enhance(1.1)
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+    img = ImageEnhance.Contrast(img).enhance(1.2)
+    img = ImageEnhance.Sharpness(img).enhance(1.15)
     return img
 
 

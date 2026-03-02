@@ -21,32 +21,14 @@ def get_engine():
 
 
 def _run_ocr_sync(tmp_path: str) -> list[dict]:
-    """블로킹 OCR 로직. 스레드에서 실행해 이벤트 루프를 막지 않음."""
-    images = pdf_to_images(tmp_path, dpi=150, max_side_len=1280)
+    """블로킹 OCR 로직. 스레드에서 실행해 이벤트 루프를 막지 않음. DPI 200으로 스캔/소문자 인식 개선."""
+    images = pdf_to_images(tmp_path, dpi=200, max_side_len=1600)
     engine = get_engine()
     pages = []
     for i, img in enumerate(images):
         img = preprocess_for_ocr(img)
         text = extract_text_from_image(engine, img)
-        pages.append({"page": i + 1, "text": text})
-    return pages
-
-
-def _run_extract_sync(tmp_path: str) -> list[dict]:
-    """
-    일반 추출: direct 시도 후 OCR 실행. 페이지별로 direct 가능하면 direct 텍스트 + source='direct', 아니면 OCR + source='ocr'.
-    """
-    direct_pages = extract_text_direct(tmp_path)
-    ocr_pages = _run_ocr_sync(tmp_path)
-    pages = []
-    for i, ocr_page in enumerate(ocr_pages):
-        page_num = i + 1
-        if direct_pages and len(direct_pages) == len(ocr_pages):
-            direct_text = (direct_pages[i] or "").strip()
-            if len(direct_text) >= 10:  # 해당 페이지에 direct 텍스트가 충분히 있으면
-                pages.append({"page": page_num, "text": direct_text, "source": "direct"})
-                continue
-        pages.append({"page": page_num, "text": ocr_page.get("text", "") or "", "source": "ocr"})
+        pages.append({"page": i + 1, "text": text, "source": "ocr"})
     return pages
 
 
@@ -127,7 +109,8 @@ async def ocr_from_pdf(
         if is_test_mode:
             data = await asyncio.to_thread(_run_ocr_with_test_mode, tmp_path)
             return {"ok": True, "pages": data["pages"], "total_pages": len(data["pages"]), "test_mode": True, "direct_available": data["direct_available"], "page_results": data["page_results"]}
-        pages = await asyncio.to_thread(_run_extract_sync, tmp_path)
+        # 테스트 모드가 아닐 때는 무조건 OCR만 사용
+        pages = await asyncio.to_thread(_run_ocr_sync, tmp_path)
         return {"ok": True, "pages": pages, "total_pages": len(pages)}
     except Exception as e:
         return {"ok": False, "error": str(e)}
