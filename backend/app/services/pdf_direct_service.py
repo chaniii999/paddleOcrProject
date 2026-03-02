@@ -54,6 +54,11 @@ def _count_by_type(text: str) -> dict[str, int]:
     return counts
 
 
+def _normalize_spaces(text: str) -> str:
+    """공백·줄바꿈 등 모든 공백 문자 제거. 정확도 계산 시 공백만 다른 경우 맞는 것으로 처리하기 위함."""
+    return "".join(text.split())
+
+
 def _build_diff_segments(direct_text: str, ocr_text: str) -> list[dict]:
     """
     글자 단위로 맞음/틀림 표시용 세그먼트 리스트 생성.
@@ -82,25 +87,28 @@ def _build_diff_segments(direct_text: str, ocr_text: str) -> list[dict]:
 def compute_diff_accuracy(direct_text: str, ocr_text: str) -> dict:
     """
     direct(정답) vs ocr(예측) 비교.
+    정확도는 공백을 무시하고 계산 (공백만 다르면 맞는 것으로 처리).
     반환: accuracy(한글/숫자/영어), total, correct, diff_summary, diff_segments(글자별 표시용).
     """
     import difflib
 
-    matcher = difflib.SequenceMatcher(None, direct_text, ocr_text)
+    norm_direct = _normalize_spaces(direct_text)
+    norm_ocr = _normalize_spaces(ocr_text)
+    matcher = difflib.SequenceMatcher(None, norm_direct, norm_ocr)
     matching_blocks = matcher.get_matching_blocks()
 
-    # 매칭된 구간에서 direct 기준으로 correct 문자 수 (타입별)
+    # 공백 제거한 기준으로 correct 문자 수 (타입별)
     correct_counts = {"hangul": 0, "digit": 0, "alpha": 0}
     for a_start, _b_start, size in matching_blocks:
         if size <= 0:
             continue
-        segment = direct_text[a_start : a_start + size]
+        segment = norm_direct[a_start : a_start + size]
         for ch in segment:
             t = _char_type(ch)
             if t and t in correct_counts:
                 correct_counts[t] += 1
 
-    total_counts = _count_by_type(direct_text)
+    total_counts = _count_by_type(norm_direct)
     accuracy = {}
     for key in ("hangul", "digit", "alpha"):
         total = total_counts[key]
@@ -110,8 +118,8 @@ def compute_diff_accuracy(direct_text: str, ocr_text: str) -> dict:
         else:
             accuracy[key] = None  # 해당 타입 없음
 
-    # 글자 단위 diff 세그먼트 (프론트에서 맞음/틀림 바로 확인용)
-    diff_segments = _build_diff_segments(direct_text, ocr_text)
+    # 글자 단위 diff 세그먼트도 공백 무시: 공백만 다르면 일치로 표시 (서부지원 vs " 서부지원 " 등)
+    diff_segments = _build_diff_segments(norm_direct, norm_ocr)
 
     # 기존 요약용 unified diff (선택)
     diff_lines = list(

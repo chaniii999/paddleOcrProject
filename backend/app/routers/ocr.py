@@ -53,19 +53,31 @@ def _run_extract_sync(tmp_path: str) -> list[dict]:
 def _run_ocr_with_test_mode(tmp_path: str) -> dict:
     """
     테스트 모드: direct 추출 시도 → OCR 실행 → 페이지 수가 같으면 diff/정확도 계산.
-    반환: { "pages": [...], "test_mode": True, "direct_available": bool, "page_results": [ { "diff_accuracy": {...} }, ... ] }
+    정답 기준은 direct 추출 텍스트. pages에는 direct(정답)을 넣고, page_results에서 ocr과 비교.
+    반환: { "pages": [...], "test_mode": True, "direct_available": bool, "page_results": [ ... ] }
     """
     direct_pages = extract_text_direct(tmp_path)
     ocr_pages = _run_ocr_sync(tmp_path)
 
+    direct_available = direct_pages is not None and len(direct_pages) == len(ocr_pages)
+
+    # 테스트 모드에서는 정답 기준을 direct로 둠 → pages에 direct 텍스트 반환
+    if direct_available and direct_pages:
+        pages = [
+            {"page": i + 1, "text": (direct_pages[i] or "").strip(), "source": "direct"}
+            for i in range(len(direct_pages))
+        ]
+    else:
+        pages = ocr_pages
+
     result = {
-        "pages": ocr_pages,
+        "pages": pages,
         "test_mode": True,
-        "direct_available": direct_pages is not None and len(direct_pages) == len(ocr_pages),
+        "direct_available": direct_available,
         "page_results": [],
     }
 
-    if not result["direct_available"] or not direct_pages:
+    if not direct_available or not direct_pages:
         return result
 
     for i, (direct_text, ocr_page) in enumerate(zip(direct_pages, ocr_pages)):
