@@ -18,7 +18,6 @@
 paddleOcrProject/
 ├── .cursor/rules/   # Cursor 규칙 (commit-convention.mdc 등)
 ├── .gitignore       # Git 제외 (가상환경, __pycache__, .env 등)
-├── .githooks/       # Git 훅 (commit-msg: 커밋 메시지 검사)
 ├── GUIDE.md        # 이 가이드 (세팅 기록)
 ├── backend/         # FastAPI + Paddle OCR + 테스트용 HTML
 │   ├── app/
@@ -32,16 +31,7 @@ paddleOcrProject/
 └── README.md
 ```
 
-**Git**: `.env` 는 커밋하지 않고, `.env.example` 만 버전 관리. 가상환경·캐시는 `.gitignore` 로 제외.
-
-### 커밋 규칙 적용
-
-- **Cursor**: `.cursor/rules/commit-convention.mdc` (`alwaysApply: true`) → Cursor에서 커밋 메시지 작성/제안 시 규칙 적용.
-- **Git 훅**: `.githooks/commit-msg` 가 제목 형식·한글·50자·마침표를 검사함. 훅을 쓰려면 한 번만 실행:
-  ```bash
-  git config core.hooksPath .githooks
-  ```
-  이후 `git commit` 시 규칙 위반이면 커밋이 거부됨.
+**Git**: `.env` 는 커밋하지 않고, `.env.example` 만 버전 관리. 가상환경·캐시는 `.gitignore` 로 제외. 커밋 메시지 규칙은 `.cursor/rules/commit-convention.mdc` (Cursor에서만 적용).
 
 ---
 

@@ -45,13 +45,14 @@
 
       var startMs = Date.now();
       var timerId = setInterval(function () {
-        var sec = (Date.now() - startMs) / 1000;
-        elapsedEl.textContent = '경과 시간: ' + sec.toFixed(2) + '초';
+        var sec = Math.floor((Date.now() - startMs) / 1000);
+        elapsedEl.textContent = '경과 시간: ' + sec + '초';
       }, 100);
 
       function stopTimer() {
         clearInterval(timerId);
-        elapsedEl.textContent = '경과 시간: ' + ((Date.now() - startMs) / 1000).toFixed(2) + '초';
+        var sec = Math.floor((Date.now() - startMs) / 1000);
+        elapsedEl.textContent = '경과 시간: ' + sec + '초';
       }
 
       fetch('/api/ocr', { method: 'POST', body: fd })
