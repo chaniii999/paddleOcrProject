@@ -128,6 +128,25 @@ def _box_y_bounds(box) -> tuple[float, float]:
     return (min(ys), max(ys))
 
 
+def _join_lines_with_paragraph_gaps(
+    line_strings: list[str],
+    line_y_ranges: list[tuple[float, float]],
+    median_h: float,
+) -> str:
+    """줄 문자열과 y 범위를 받아 단락 간격(빈 줄)을 반영해 합침."""
+    result_parts = []
+    for i, s in enumerate(line_strings):
+        if i > 0:
+            gap = line_y_ranges[i][0] - line_y_ranges[i - 1][1]
+            if gap > median_h * PARAGRAPH_GAP_LARGE_RATIO:
+                result_parts.append("")
+                result_parts.append("")
+            elif gap > median_h * PARAGRAPH_GAP_RATIO:
+                result_parts.append("")
+        result_parts.append(s)
+    return "\n".join(result_parts)
+
+
 def _build_lines_with_spaces(texts: list[str], boxes: list) -> str | None:
     """
     박스 좌표로 줄을 구분하고, 같은 줄 내에서 박스 간 간격이 넓으면 공백 삽입.
@@ -139,27 +158,30 @@ def _build_lines_with_spaces(texts: list[str], boxes: list) -> str | None:
     if not valid:
         return None
 
-    heights = [_box_height(b) for _, b in valid]
+    # 박스 좌표·높이 일괄 계산 (중복 호출 제거)
+    enhanced = []
+    for t, b in valid:
+        xl, xr = _box_x_bounds(b)
+        y_lo, y_hi = _box_y_bounds(b)
+        yc = (y_lo + y_hi) / 2.0
+        enhanced.append((t, xl, xr, (y_lo, y_hi), yc))
+    heights = [y_hi - y_lo for _, _, _, (y_lo, y_hi), _ in enhanced]
     median_h = float(np.median(heights)) if heights else 0.0
     line_threshold = max(median_h * SAME_LINE_Y_RATIO, 1.0)
 
-    y_centers = [_y_center(b) for _, b in valid]
-    indices = sorted(range(len(valid)), key=lambda i: (y_centers[i], _box_x_bounds(valid[i][1])[0]))
+    indices = sorted(range(len(enhanced)), key=lambda i: (enhanced[i][4], enhanced[i][1]))
 
     lines: list[list[tuple[str, float, float, tuple[float, float]]]] = []
     current_line: list[tuple[str, float, float, tuple[float, float]]] = []
     last_y = None
 
     for i in indices:
-        t, b = valid[i]
-        yc = y_centers[i]
-        x_left, x_right = _box_x_bounds(b)
-        y_lo, y_hi = _box_y_bounds(b)
+        t, x_left, x_right, y_bounds, yc = enhanced[i]
         if last_y is not None and abs(yc - last_y) > line_threshold:
             if current_line:
                 lines.append(current_line)
             current_line = []
-        current_line.append((t, x_left, x_right, (y_lo, y_hi)))
+        current_line.append((t, x_left, x_right, y_bounds))
         last_y = yc
 
     if current_line:
@@ -204,18 +226,7 @@ def _build_lines_with_spaces(texts: list[str], boxes: list) -> str | None:
         line_strings.append(" " * indent_spaces + line_content)
         line_y_ranges.append((min(y_mins), max(y_maxs)))
 
-    # 줄 사이 세로 간격에 따라 빈 줄 수 조절 (PDF 배치 반영)
-    result_parts = []
-    for i, s in enumerate(line_strings):
-        if i > 0:
-            gap = line_y_ranges[i][0] - line_y_ranges[i - 1][1]
-            if gap > median_h * PARAGRAPH_GAP_LARGE_RATIO:
-                result_parts.append("")
-                result_parts.append("")
-            elif gap > median_h * PARAGRAPH_GAP_RATIO:
-                result_parts.append("")
-        result_parts.append(s)
-    return "\n".join(result_parts)
+    return _join_lines_with_paragraph_gaps(line_strings, line_y_ranges, median_h)
 
 
 def _single_char_lines_with_spaces(
@@ -231,18 +242,26 @@ def _single_char_lines_with_spaces(
     if not valid_indices:
         return None
 
-    valid = [(texts[i], boxes[i], y_centers[i]) for i in valid_indices]
-    heights = [_box_height(b) for _, b, _ in valid]
+    # 박스 좌표 일괄 계산 (중복 호출 제거)
+    box_bounds = {}
+    for i in valid_indices:
+        b = boxes[i]
+        xl, xr = _box_x_bounds(b)
+        y_lo, y_hi = _box_y_bounds(b)
+        box_bounds[i] = (xl, xr, y_lo, y_hi)
+    heights = [box_bounds[i][3] - box_bounds[i][2] for i in valid_indices]
     median_h = float(np.median(heights)) if heights else 1.0
     line_threshold = max(median_h * SAME_LINE_Y_RATIO, 1.0)
+    y_centers_arr = [(box_bounds[i][2] + box_bounds[i][3]) / 2.0 for i in valid_indices]
+    y_center_by_idx = dict(zip(valid_indices, y_centers_arr))
 
-    ordered = sorted(valid_indices, key=lambda i: (y_centers[i], _box_x_bounds(boxes[i])[0]))
+    ordered = sorted(valid_indices, key=lambda i: (y_center_by_idx[i], box_bounds[i][0]))
 
     lines: list[list[int]] = []
     current = []
     last_y = None
     for i in ordered:
-        yc = y_centers[i]
+        yc = y_center_by_idx[i]
         if last_y is not None and abs(yc - last_y) > line_threshold:
             if current:
                 lines.append(current)
@@ -252,13 +271,9 @@ def _single_char_lines_with_spaces(
     if current:
         lines.append(current)
 
-    all_widths = []
-    for line in lines:
-        for idx in line:
-            xl, xr = _box_x_bounds(boxes[idx])
-            all_widths.append(xr - xl)
+    all_widths = [box_bounds[idx][1] - box_bounds[idx][0] for line in lines for idx in line]
     median_char_w = float(np.median(all_widths)) if all_widths else 10.0
-    left_margin = min(_box_x_bounds(boxes[line[0]])[0] for line in lines if line)
+    left_margin = min(box_bounds[line[0]][0] for line in lines if line)
     indent_unit = max(median_char_w * INDENT_CHAR_WIDTH_RATIO, 1.0)
 
     line_strings = []
@@ -266,23 +281,21 @@ def _single_char_lines_with_spaces(
     for line in lines:
         if not line:
             continue
-        line_boxes = [boxes[i] for i in line]
-        widths = [_box_x_bounds(b)[1] - _box_x_bounds(b)[0] for b in line_boxes]
+        widths = [box_bounds[idx][1] - box_bounds[idx][0] for idx in line]
         median_w = float(np.median(widths)) if widths else 0.0
         gap_threshold = max(median_w * SPACE_GAP_RATIO, 1.0)
         column_gap_threshold = max(median_w * COLUMN_GAP_RATIO, gap_threshold * 2)
 
-        first_x_left = _box_x_bounds(boxes[line[0]])[0]
+        first_x_left = box_bounds[line[0]][0]
         parts = []
         y_mins, y_maxs = [], []
         for k, idx in enumerate(line):
-            y_lo, y_hi = _box_y_bounds(boxes[idx])
+            xl, xr, y_lo, y_hi = box_bounds[idx]
             y_mins.append(y_lo)
             y_maxs.append(y_hi)
             if k > 0:
-                prev_right = _box_x_bounds(boxes[line[k - 1]])[1]
-                curr_left = _box_x_bounds(boxes[idx])[0]
-                gap = curr_left - prev_right
+                prev_right = box_bounds[line[k - 1]][1]
+                gap = xl - prev_right
                 if gap >= column_gap_threshold:
                     parts.append("\t")
                 elif gap >= gap_threshold:
@@ -293,17 +306,7 @@ def _single_char_lines_with_spaces(
         line_strings.append(" " * indent_spaces + line_content)
         line_y_ranges.append((min(y_mins), max(y_maxs)))
 
-    result_parts = []
-    for i, s in enumerate(line_strings):
-        if i > 0:
-            gap = line_y_ranges[i][0] - line_y_ranges[i - 1][1]
-            if gap > median_h * PARAGRAPH_GAP_LARGE_RATIO:
-                result_parts.append("")
-                result_parts.append("")
-            elif gap > median_h * PARAGRAPH_GAP_RATIO:
-                result_parts.append("")
-        result_parts.append(s)
-    return "\n".join(result_parts)
+    return _join_lines_with_paragraph_gaps(line_strings, line_y_ranges, median_h)
 
 
 def extract_text_from_image(ocr_engine: PaddleOCR, image) -> str:

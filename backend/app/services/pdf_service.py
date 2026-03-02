@@ -8,12 +8,21 @@ from pdf2image import convert_from_path
 from PIL import Image
 
 
+_POPPLER_CACHE_SENTINEL = object()
+_poppler_path_cache: str | None | object = _POPPLER_CACHE_SENTINEL
+
+
 def _get_poppler_path() -> str | None:
-    """Windows에서 PATH에 없을 때 Poppler bin 경로를 찾음. 환경변수 POPPLER_PATH 또는 흔한 설치 경로."""
+    """Windows에서 PATH에 없을 때 Poppler bin 경로를 찾음. 한 번 찾으면 캐싱."""
+    global _poppler_path_cache
+    if _poppler_path_cache is not _POPPLER_CACHE_SENTINEL:
+        return _poppler_path_cache
     if sys.platform != "win32":
+        _poppler_path_cache = None
         return None
     env_path = os.environ.get("POPPLER_PATH")
     if env_path and Path(env_path).joinpath("pdftoppm.exe").exists():
+        _poppler_path_cache = env_path
         return env_path
     candidates = [
         Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Poppler" / "bin",
@@ -22,7 +31,8 @@ def _get_poppler_path() -> str | None:
     ]
     for p in candidates:
         if p.joinpath("pdftoppm.exe").exists():
-            return str(p)
+            _poppler_path_cache = str(p)
+            return _poppler_path_cache
     # winget 설치 경로 (예: ...\WinGet\Packages\oschwartz10612.Poppler_...\poppler-25.07.0\Library\bin)
     winget = Path(os.environ.get("LocalAppData", "")) / "Microsoft" / "WinGet" / "Packages"
     if winget.is_dir():
@@ -32,7 +42,9 @@ def _get_poppler_path() -> str | None:
                     if sub.is_dir() and "poppler" in sub.name.lower():
                         bin_path = sub / "Library" / "bin"
                         if bin_path.joinpath("pdftoppm.exe").exists():
-                            return str(bin_path)
+                            _poppler_path_cache = str(bin_path)
+                            return _poppler_path_cache
+    _poppler_path_cache = None
     return None
 
 

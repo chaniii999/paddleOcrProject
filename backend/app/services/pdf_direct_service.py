@@ -1,5 +1,6 @@
 """디지털 PDF에서 텍스트 직접 추출 (테스트 모드용)."""
 
+import difflib
 from pathlib import Path
 
 import fitz  # pymupdf
@@ -15,15 +16,11 @@ def extract_text_direct(pdf_path: str | Path) -> list[str] | None:
     if not path.exists() or path.suffix.lower() != ".pdf":
         return None
     try:
-        doc = fitz.open(path)
-        pages = []
-        for i in range(len(doc)):
-            page = doc[i]
-            # sort=True: y(세로) → x(가로) 기준 정렬로 읽기 순서에 가깝게
-            text = page.get_text("text", sort=True).strip()
-            pages.append(text)
-        doc.close()
-        # 텍스트가 거의 없는 PDF면 direct 추출 불가로 간주
+        with fitz.open(path) as doc:
+            pages = [
+                doc[i].get_text("text", sort=True).strip()
+                for i in range(len(doc))
+            ]
         total_chars = sum(len(p) for p in pages)
         if total_chars < 10:
             return None
@@ -64,8 +61,6 @@ def _build_diff_segments(direct_text: str, ocr_text: str) -> list[dict]:
     글자 단위로 맞음/틀림 표시용 세그먼트 리스트 생성.
     equal: 일치, replace: direct→ocr 치환, insert: OCR만 있음, delete: direct만 있음.
     """
-    import difflib
-
     matcher = difflib.SequenceMatcher(None, direct_text, ocr_text)
     segments = []
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
@@ -90,8 +85,6 @@ def compute_diff_accuracy(direct_text: str, ocr_text: str) -> dict:
     정확도는 공백을 무시하고 계산 (공백만 다르면 맞는 것으로 처리).
     반환: accuracy(한글/숫자/영어), total, correct, diff_summary, diff_segments(글자별 표시용).
     """
-    import difflib
-
     norm_direct = _normalize_spaces(direct_text)
     norm_ocr = _normalize_spaces(ocr_text)
     matcher = difflib.SequenceMatcher(None, norm_direct, norm_ocr)
