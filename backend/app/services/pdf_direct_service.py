@@ -5,12 +5,8 @@ from pathlib import Path
 import fitz  # pymupdf
 
 
+# 디지털 PDF의 텍스트 레이어를 페이지 순서대로 추출해 문자열 리스트로 반환 (실패/텍스트 거의 없으면 None).
 def extract_text_direct(pdf_path: str | Path) -> list[str] | None:
-    """
-    PDF에 내장된 텍스트 레이어를 페이지별로 추출.
-    sort=True 로 위→아래·왼쪽→오른쪽 읽기 순서로 정렬 후 추출 (문단 순서 꼬임 완화).
-    추출 가능하면 페이지당 문자열 리스트, 실패 또는 텍스트 없으면 None.
-    """
     path = Path(pdf_path)
     if not path.exists() or path.suffix.lower() != ".pdf":
         return None

@@ -6,8 +6,8 @@
 import difflib
 
 
+# 한 글자가 한글/숫자/영문 중 무엇인지 구분해 'hangul'|'digit'|'alpha'|None 반환.
 def _char_type(ch: str) -> str | None:
-    """한 글자에 대해 'hangul' | 'digit' | 'alpha' | None(기타) 반환."""
     if not ch:
         return None
     if "\uac00" <= ch <= "\ud7a3":
@@ -19,6 +19,7 @@ def _char_type(ch: str) -> str | None:
     return None
 
 
+# 문자열에서 한글/숫자/영문 각각의 글자 수를 세어 딕셔너리로 반환.
 def _count_by_type(text: str) -> dict[str, int]:
     counts = {"hangul": 0, "digit": 0, "alpha": 0}
     for ch in text:
@@ -28,16 +29,13 @@ def _count_by_type(text: str) -> dict[str, int]:
     return counts
 
 
+# 모든 공백·줄바꿈을 제거한 문자열로 만들어 정확도 계산 시 공백 차이를 무시함.
 def _normalize_spaces(text: str) -> str:
-    """공백·줄바꿈 제거. 정확도 계산 시 공백만 다른 경우 맞는 것으로 처리."""
     return "".join(text.split())
 
 
+# 두 텍스트를 비교해 equal/replace/insert/delete 구간별로 잘라 세그먼트 리스트로 반환 (UI 색칠용).
 def _build_diff_segments(direct_text: str, ocr_text: str) -> list[dict]:
-    """
-    글자 단위로 맞음/틀림 표시용 세그먼트 리스트 생성.
-    equal / replace / insert / delete.
-    """
     matcher = difflib.SequenceMatcher(None, direct_text, ocr_text)
     segments = []
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
@@ -56,12 +54,8 @@ def _build_diff_segments(direct_text: str, ocr_text: str) -> list[dict]:
     return segments
 
 
+# 정답(direct)과 OCR 결과를 비교해 한글/숫자/영문별 정확도·diff 세그먼트·요약을 담은 딕셔너리 반환 (공백 무시).
 def compute_diff_accuracy(direct_text: str, ocr_text: str) -> dict:
-    """
-    direct(정답) vs ocr(예측) 비교.
-    정확도는 공백을 무시하고 계산.
-    반환: accuracy(한글/숫자/영어), total, correct, diff_summary, diff_segments.
-    """
     norm_direct = _normalize_spaces(direct_text)
     norm_ocr = _normalize_spaces(ocr_text)
     matcher = difflib.SequenceMatcher(None, norm_direct, norm_ocr)

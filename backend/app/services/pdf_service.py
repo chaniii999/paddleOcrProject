@@ -12,8 +12,8 @@ _POPPLER_CACHE_SENTINEL = object()
 _poppler_path_cache: str | None | object = _POPPLER_CACHE_SENTINEL
 
 
+# Windows에서 pdftoppm 등 Poppler 실행 파일 경로를 찾아 반환 (한 번 찾은 값 캐싱).
 def _get_poppler_path() -> str | None:
-    """Windows에서 PATH에 없을 때 Poppler bin 경로를 찾음. 한 번 찾으면 캐싱."""
     global _poppler_path_cache
     if _poppler_path_cache is not _POPPLER_CACHE_SENTINEL:
         return _poppler_path_cache
@@ -52,11 +52,8 @@ def _get_poppler_path() -> str | None:
 # (과한 전처리 시 2페이지 등에서 오인식)
 
 
+# OCR 입력 전 이미지를 RGB로만 맞추고, 대비/선명도 등은 건드리지 않음 (엔진과 충돌 방지).
 def preprocess_for_ocr(img: Image.Image) -> Image.Image:
-    """
-    OCR 입력용 최소 전처리. RGB 통일만 수행.
-    대비·선명도·이진화 미적용 → 엔진 내부 처리와 충돌·과적용 방지.
-    """
     if img.mode != "RGB":
         img = img.convert("RGB")
     return img
@@ -66,8 +63,8 @@ def preprocess_for_ocr(img: Image.Image) -> Image.Image:
 RESIZE_ALIGN = 32
 
 
+# 긴 변이 max_side를 넘으면 비율 유지해 줄이고, 가로·세로를 32 배수로 맞춰 엔진 입력에 맞춤.
 def _resize_if_large(img: Image.Image, max_side: int) -> Image.Image:
-    """긴 변이 max_side를 넘으면 비율 유지 리사이즈. 출력 크기는 RESIZE_ALIGN 배수로 맞춤."""
     w, h = img.size
     if max(w, h) <= max_side:
         return img
@@ -82,18 +79,13 @@ def _resize_if_large(img: Image.Image, max_side: int) -> Image.Image:
     return img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
 
+# PDF 파일을 지정 DPI로 렌더한 뒤 페이지별 PIL Image 리스트로 반환 (긴 변 제한·32 정렬 리사이즈 적용).
 def pdf_to_images(
     pdf_path: str | Path,
     dpi: int = 300,
     max_side_len: int = 960,
     thread_count: int = 2,
 ):
-    """
-    PDF 파일을 페이지별 이미지(PIL Image) 리스트로 변환.
-    OCR용: dpi=300, max_side_len=960. 큰 글자도 리사이즈로 유효 높이에 맞춰 인식 개선.
-    - max_side_len: 긴 변 제한(픽셀). 초과 시 비율 유지·32 정렬 리사이즈 1회만.
-    - thread_count: 다중 페이지 변환 시 스레드 수 (기본 2).
-    """
     path = Path(pdf_path)
     if not path.exists():
         raise FileNotFoundError(f"PDF not found: {path}")

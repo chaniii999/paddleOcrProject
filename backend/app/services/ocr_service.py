@@ -16,6 +16,7 @@ DROP_SCORE_FOR_COUNCIL_DOCS = 0.55
 REC_BATCH_NUM_FOR_GPU = 10
 
 
+# PaddleOCR 엔진 인스턴스를 생성해 반환 (앱 lifespan에서 한 번만 만들고 재사용).
 def get_ocr_engine(
     use_angle_cls: bool = False,
     lang: str = "korean",
@@ -23,21 +24,14 @@ def get_ocr_engine(
     rec_char_dict_path: str | None = None,
     rec_batch_num: int = REC_BATCH_NUM_FOR_GPU,
 ):
-    """
-    PaddleOCR 엔진 (재사용 권장).
-    - use_angle_cls=False: 평문서·정방향 문서는 꺼두면 속도 개선.
-    - drop_score, rec_batch_num: 현재 PaddleOCR whl 버전에서 생성자 인자 미지원. 인터페이스만 유지.
-    """
     kwargs: dict = {"use_angle_cls": use_angle_cls, "lang": lang}
     if rec_char_dict_path:
         kwargs["rec_char_dict_path"] = rec_char_dict_path
     return PaddleOCR(**kwargs)
 
 
+# PIL/ndarray/경로를 OCR 엔진이 받을 수 있는 RGB·C-contiguous numpy 배열로 바꿈.
 def _to_numpy(image):
-    """
-    PIL Image → numpy.ndarray. PaddleOCR에 넘기기 전 RGB 통일·C-contiguous 복사.
-    """
     if isinstance(image, str):
         return image
     try:
@@ -54,8 +48,8 @@ def _to_numpy(image):
     return np.array(image)
 
 
+# OCR 검출 한 건([box, text] 등)에서 텍스트 문자열만 꺼내 반환.
 def _text_from_item(item) -> str:
-    """한 개 검출 결과에서 텍스트만 추출 (형식: [box, (text, conf)] 또는 [box, text] 등)."""
     if not item or len(item) < 2:
         return ""
     part = item[1]
@@ -64,8 +58,8 @@ def _text_from_item(item) -> str:
     return str(part).strip()
 
 
+# OCR 검출 한 건에서 좌표 박스(4점 리스트)만 꺼내 반환 (순서 무관하게 처리).
 def _get_box_from_item(item):
-    """item이 [box, text_or_tuple] 또는 [text, box] 형태일 수 있음."""
     if not item or len(item) < 2:
         return None
     first = item[0]
@@ -76,11 +70,8 @@ def _get_box_from_item(item):
     return None
 
 
+# 한 장 이미지를 OCR 엔진에 넣어 검출한 뒤, ocr_layout으로 줄/공백/문단을 반영한 텍스트 한 덩어리 반환.
 def extract_text_from_image(ocr_engine: PaddleOCR, image) -> str:
-    """
-    단일 이미지(PIL Image, numpy.ndarray 또는 파일 경로)에서 텍스트 추출.
-    반환: 줄 단위로 합친 문자열. 레이아웃(줄/공백/문단)은 ocr_layout에서 처리.
-    """
     from app.services.ocr_layout import (
         box_y_center,
         build_lines_with_spaces,

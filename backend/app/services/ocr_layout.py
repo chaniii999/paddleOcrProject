@@ -20,44 +20,44 @@ INDENT_CHAR_WIDTH_RATIO = 0.5
 MIN_PARAGRAPH_GAP_RATIO = 0.4
 
 
+# 박스 좌표에서 왼쪽·오른쪽 x 범위를 구함 (공백/탭 삽입 시 간격 계산용).
 def _box_x_bounds(box) -> tuple[float, float]:
-    """박스 [[x1,y1],...] 에서 왼쪽 x(min), 오른쪽 x(max) 반환."""
     if not box or len(box) < 4:
         return (0.0, 0.0)
     xs = [p[0] if len(p) > 0 else 0 for p in box]
     return (min(xs), max(xs))
 
 
+# 박스의 y 최소·최대를 구함 (줄 간격·문단 빈 줄 판단용).
 def _box_y_bounds(box) -> tuple[float, float]:
-    """박스의 y 최소·최대 (줄 간격 계산용)."""
     if not box or len(box) < 4:
         return (0.0, 0.0)
     ys = [p[1] if len(p) > 1 else 0 for p in box]
     return (min(ys), max(ys))
 
 
+# 박스의 세로 높이를 구함 (같은 줄인지 판단할 때 쓰는 기준값).
 def _box_height(box) -> float:
-    """박스의 대략적인 세로 높이 (줄 구분 시 같은 줄 판단에 사용)."""
     if not box or len(box) < 4:
         return 0.0
     ys = [p[1] if len(p) > 1 else 0 for p in box]
     return max(ys) - min(ys)
 
 
+# 박스의 y 중앙값을 구함 (ocr_service에서 한 글자씩 나올 때 줄 묶기용).
 def box_y_center(box) -> float:
-    """박스 [[x1,y1],[x2,y2],[x3,y3],[x4,y4]] 의 대략적인 y 중앙. (ocr_service에서 단일글자 경로용 호출)"""
     if not box or len(box) < 4:
         return 0.0
     ys = [p[1] if len(p) > 1 else 0 for p in box]
     return sum(ys) / len(ys)
 
 
+# 이미 만든 줄 문자열들 사이에, 세로 간격이 크면 빈 줄을 넣어서 하나의 문자열로 합침.
 def _join_lines_with_paragraph_gaps(
     line_strings: list[str],
     line_y_ranges: list[tuple[float, float]],
     median_h: float,
 ) -> str:
-    """줄 문자열과 y 범위를 받아 단락 간격(빈 줄)을 반영해 합침."""
     result_parts = []
     for i, s in enumerate(line_strings):
         if i > 0:
@@ -73,11 +73,8 @@ def _join_lines_with_paragraph_gaps(
     return "\n".join(result_parts)
 
 
+# 박스·텍스트 리스트를 받아 줄 구분·공백/탭/들여쓰기/문단 빈 줄을 넣은 최종 텍스트 한 덩어리로 만듦.
 def build_lines_with_spaces(texts: list[str], boxes: list) -> str | None:
-    """
-    박스 좌표로 줄을 구분하고, 같은 줄 내에서 박스 간 간격이 넓으면 공백/탭 삽입.
-    줄 사이 세로 간격이 크면 빈 줄을 넣어 PDF 단락/간격을 반영.
-    """
     if not texts or not boxes or len(texts) != len(boxes):
         return None
     valid = [(t, b) for t, b in zip(texts, boxes) if b is not None]
@@ -154,13 +151,10 @@ def build_lines_with_spaces(texts: list[str], boxes: list) -> str | None:
     return _join_lines_with_paragraph_gaps(line_strings, line_y_ranges, median_h)
 
 
+# 한 글자씩만 나온 경우, y 기준으로 같은 줄끼리 묶고 공백/탭/문단 빈 줄을 넣어 한 텍스트로 만듦.
 def single_char_lines_with_spaces(
     texts: list[str], boxes: list, y_centers: list[float]
 ) -> str | None:
-    """
-    한 글자씩 인식된 경우, y 기준으로 같은 줄을 묶고 줄 내에서 간격이 넓으면 공백 삽입.
-    줄 사이 세로 간격이 크면 빈 줄로 PDF 간격 반영.
-    """
     if not texts or len(texts) != len(y_centers) or len(texts) != len(boxes):
         return None
     valid_indices = [i for i in range(len(texts)) if boxes[i] is not None]

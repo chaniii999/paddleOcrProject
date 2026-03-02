@@ -21,9 +21,9 @@ from app.routers import health, ocr
 from app.services.ocr_service import get_ocr_engine
 
 
+# 앱 기동 시 OCR 엔진을 한 번 만들고 종료 시 정리 (프로세스/워커당 한 개만 유지).
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """프로세스당 OCR 엔진을 한 번만 생성·보유. 워커별로 분리된 상태 유지."""
     app.state.ocr_engine = get_ocr_engine()
     try:
         yield
@@ -41,9 +41,9 @@ app = FastAPI(
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
+# 루트 경로 접속 시 정적 HTML(업로드 폼)을 내려줌.
 @app.get("/")
 def root():
-    """테스트용 프론트: PDF 업로드 폼."""
     return FileResponse(_STATIC_DIR / "index.html")
 
 

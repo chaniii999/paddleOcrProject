@@ -13,11 +13,12 @@ from app.services.ocr_service import get_ocr_engine
 router = APIRouter()
 
 
+# FastAPI Depends: 요청 시점에 app.state에 들어 있는 OCR 엔진을 꺼내 주입.
 def get_ocr_engine_dep(request: Request):
-    """FastAPI Depends: 프로세스별로 lifespan에서 생성한 OCR 엔진을 주입."""
     return request.app.state.ocr_engine
 
 
+# PDF 업로드 받아 확장자·용량 검사 후, 테스트 모드 여부에 따라 OCR만 또는 direct+OCR+diff 실행해 JSON 반환.
 @router.post("")
 @router.post("/from-pdf")
 async def ocr_from_pdf(
@@ -25,10 +26,6 @@ async def ocr_from_pdf(
     test_mode: str = Form("false"),
     engine=Depends(get_ocr_engine_dep),
 ):
-    """
-    스캔본 PDF를 업로드하면 페이지별로 OCR 후 텍스트 반환.
-    test_mode=true 이고 디지털 PDF(텍스트 레이어 있음)면 direct vs OCR diff 및 정확도 표시.
-    """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         return {"ok": False, "error": "PDF 파일만 업로드 가능합니다."}
 
