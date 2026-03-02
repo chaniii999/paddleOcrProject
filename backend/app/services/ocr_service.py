@@ -13,12 +13,32 @@ except Exception:
     pass
 
 
-def get_ocr_engine(use_angle_cls: bool = False, lang: str = "korean"):
+def get_ocr_engine(
+    use_angle_cls: bool = False,
+    lang: str = "korean",
+    use_gpu: bool = True,
+    show_log: bool = False,
+    drop_score: float = 0.5,
+    rec_char_dict_path: str | None = None,
+):
     """
     PaddleOCR 엔진 (재사용 권장).
-    use_angle_cls=False: 평문서·정방향 문서는 꺼두면 속도 개선. 회전 문서만 True.
+    - use_angle_cls=False: 평문서·정방향 문서는 꺼두면 속도 개선. 회전 문서만 True.
+    - use_gpu: GPU 사용 여부 (paddlepaddle-gpu 설치 시 True 권장).
+    - show_log: False면 PaddleOCR 내부 로그 억제.
+    - drop_score: 인식 신뢰도가 이 값 미만이면 결과에서 제외 (기본 0.5, 품질 조정 가능).
+    - rec_char_dict_path: 커스텀 문자 사전 경로 (한 줄 한 글자). 도메인 용어·특수문자 추가 시 사용.
     """
-    return PaddleOCR(use_angle_cls=use_angle_cls, lang=lang)
+    kwargs: dict = {
+        "use_angle_cls": use_angle_cls,
+        "lang": lang,
+        "use_gpu": use_gpu,
+        "show_log": show_log,
+        "drop_score": drop_score,
+    }
+    if rec_char_dict_path:
+        kwargs["rec_char_dict_path"] = rec_char_dict_path
+    return PaddleOCR(**kwargs)
 
 
 def _to_numpy(image):

@@ -68,6 +68,157 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8100
 - 테스트 화면: http://localhost:8100 (PDF 업로드 폼)
 - API 문서: http://localhost:8100/docs
 
+### 2.4 Windows PowerShell에서 가상환경 + GPU 세팅 (처음부터)
+
+Ubuntu/conda 대신 **Windows PowerShell**에서 GPU로 돌리려면 **Miniconda부터** 설치한 뒤 아래 순서대로 진행하면 됩니다.
+
+#### 1) Miniconda 설치 (가장 먼저) — 명령어로 설치
+
+**방법 A — winget (권장)**  
+PowerShell에서 한 줄로 설치. 설치 후 **새 터미널**을 열어야 `conda` 인식됨.
+
+```powershell
+winget install Anaconda.Miniconda3 --source winget --accept-package-agreements --accept-source-agreements
+```
+
+> `msstore` 원본 오류나 인증서 오류가 나면 `--source winget` 을 넣어 winget 저장소만 사용하면 됨.
+
+**방법 B — 무인 설치 (설치 파일 다운로드 후)**  
+PATH에 자동 추가까지 하려면 `AddToPath=1` 사용. 설치 경로는 마지막에 한 번만.
+
+```powershell
+# 다운로드 (예: 사용자 폴더)
+$out = "$env:USERPROFILE\Miniconda3-latest-Windows-x86_64.exe"
+Invoke-WebRequest -Uri "https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe" -OutFile $out -UseBasicParsing
+
+# 무인 설치 (본인만 사용, PATH 추가, Python 기본 등록 안 함)
+Start-Process -FilePath $out -ArgumentList "/InstallationType=JustMe", "/AddToPath=1", "/RegisterPython=0", "/S", "/D=$env:USERPROFILE\Miniconda3" -Wait
+```
+
+설치가 끝나면 **PowerShell을 새로 연 뒤** 확인:
+
+```powershell
+conda --version
+```
+
+**PATH가 안 됐을 때** (winget 설치 후 `conda`를 찾을 수 없는 경우):
+
+1. **경로로 한 번 실행해서 conda init**  
+   Miniconda가 보통 `%USERPROFILE%\miniconda3` 또는 `%USERPROFILE%\Miniconda3` 에 설치됨. 아래 중 경로가 있는 쪽으로 실행한 뒤 **PowerShell을 새로 열기**.
+
+   ```powershell
+   # 경로 확인 (있으면 그쪽 사용)
+   & "$env:USERPROFILE\miniconda3\Scripts\conda.exe" init powershell
+   # 또는
+   & "$env:USERPROFILE\Miniconda3\Scripts\conda.exe" init powershell
+   ```
+
+2. **수동으로 PATH에 추가** (현재 사용자, 영구 적용)
+
+   ```powershell
+   $condaPath = "$env:USERPROFILE\miniconda3"
+   if (-not (Test-Path $condaPath)) { $condaPath = "$env:USERPROFILE\Miniconda3" }
+   [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$condaPath;$condaPath\Scripts", "User")
+   ```
+   적용 후 **PowerShell을 새로 열고** `conda --version` 으로 확인.
+
+#### 2) 사전 확인 (GPU·Poppler)
+
+- **NVIDIA 드라이버 + CUDA**  
+  ```powershell
+  nvidia-smi
+  ```
+  상단에 **CUDA Version**이 보이면 됨 (예: 12.6, 12.9, 11.8). 없으면 [NVIDIA 드라이버](https://www.nvidia.com/Download/index.aspx) 및 필요 시 [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) 설치.
+
+- **Poppler** — PDF → 이미지 변환에 필요. 없으면 `Unable to get page count` 오류 발생.  
+  **명령어로 설치 (winget):**
+  ```powershell
+  winget install oschwartz10612.Poppler --source winget --accept-package-agreements --accept-source-agreements
+  ```
+  > msstore 인증서 오류가 나면 `--source winget` 을 넣어서 실행.
+  설치 후 **PowerShell을 새로 열고** `pdftoppm -h` 가 오류 없이 나오면 됨.  
+  winget이 안 되면 [Poppler for Windows](https://github.com/osber/poppler-windows/releases)에서 zip 받아 `bin` 폴더를 PATH에 추가.
+
+  **설치는 됐는데 여전히 `Unable to get page count` 가 나올 때** (PATH에 안 잡힌 경우):  
+  - Poppler이 있는 폴더 찾기 (아래 중 하나로 `pdftoppm.exe` 가 있는 **폴더** 확인):  
+    ```powershell
+    Get-ChildItem -Path "C:\Program Files","$env:LOCALAPPDATA" -Recurse -Filter "pdftoppm.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+    ```  
+  - 나온 경로(예: `C:\Program Files\Poppler\bin`)를 **사용자 환경 변수** `POPPLER_PATH` 로 설정하거나, 해당 폴더를 시스템 PATH에 추가.  
+  - 이 프로젝트 백엔드는 `POPPLER_PATH` 가 있으면 PATH 없이도 그 경로를 사용함.
+
+#### 3) Conda 가상환경 생성·활성화
+
+**처음 한 번만** — Conda 이용약관(TOS) 수락이 필요하면 아래 세 줄 실행 후 진행:
+
+```powershell
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/msys2
+```
+
+이후 환경 생성·활성화:
+
+```powershell
+cd D:\home\paddleOcrProject\backend
+conda create -n paddle-ocr python=3.10 -y
+conda activate paddle-ocr
+```
+
+프롬프트 앞에 `(paddle-ocr)` 가 붙으면 활성화된 상태입니다. (Python 3.10은 이 환경 안에만 설치됨.)
+
+#### 4) PaddlePaddle GPU 설치 (CUDA 버전에 맞게 하나만)
+
+**먼저** CPU용 paddlepaddle은 설치하지 않습니다. 아래 중 본인 CUDA 버전에 맞는 명령 **하나만** 실행하세요.
+
+```powershell
+# CUDA 11.8
+pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
+
+# CUDA 12.6
+pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+
+# CUDA 12.9
+pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/
+```
+
+#### 5) 나머지 의존성 설치
+
+```powershell
+pip install -r requirements-gpu.txt
+```
+
+#### 6) GPU 동작 확인
+
+```powershell
+python -c "import paddle; paddle.utils.run_check()"
+```
+
+`PaddlePaddle is installed successfully!` 및 GPU 관련 메시지가 나오면 정상입니다.
+
+#### 7) 서버 실행
+
+```powershell
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8100
+```
+
+- 테스트 화면: http://localhost:8100  
+- API 문서: http://localhost:8100/docs  
+
+**PowerShell 시작 시 py310 자동 활성화**  
+프로필에 한 줄 추가하면 PowerShell을 열 때마다 `py310` 환경이 자동으로 활성화됨.
+
+```powershell
+# 프로필이 없으면 빈 파일 생성 후, 맨 아래에 추가
+if (!(Test-Path $PROFILE)) { New-Item -Path $PROFILE -ItemType File -Force }
+Add-Content -Path $PROFILE -Value "`n# conda py310 자동 활성화`nconda activate py310"
+```
+
+적용 후 **PowerShell을 새로 열면** 프롬프트에 `(py310)` 이 붙음. 다른 환경을 쓰려면 `conda activate base` 등으로 전환하면 됨.
+
+> **PowerShell 실행 정책 오류**가 나면:  
+> `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` 실행 후 터미널을 다시 열고 `conda activate py310` 재시도.
+
 ---
 
 ## 3. OCR 로직 개요

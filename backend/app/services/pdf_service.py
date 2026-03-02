@@ -1,9 +1,39 @@
 """PDF를 이미지로 변환하는 서비스 (pdf2image 사용)."""
 
+import os
+import sys
 from pathlib import Path
 
 from pdf2image import convert_from_path
 from PIL import Image
+
+
+def _get_poppler_path() -> str | None:
+    """Windows에서 PATH에 없을 때 Poppler bin 경로를 찾음. 환경변수 POPPLER_PATH 또는 흔한 설치 경로."""
+    if sys.platform != "win32":
+        return None
+    env_path = os.environ.get("POPPLER_PATH")
+    if env_path and Path(env_path).joinpath("pdftoppm.exe").exists():
+        return env_path
+    candidates = [
+        Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Poppler" / "bin",
+        Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "poppler" / "Library" / "bin",
+        Path(os.environ.get("LocalAppData", "")) / "Programs" / "Poppler" / "bin",
+    ]
+    for p in candidates:
+        if p.joinpath("pdftoppm.exe").exists():
+            return str(p)
+    # winget 설치 경로 (예: ...\WinGet\Packages\oschwartz10612.Poppler_...\poppler-25.07.0\Library\bin)
+    winget = Path(os.environ.get("LocalAppData", "")) / "Microsoft" / "WinGet" / "Packages"
+    if winget.is_dir():
+        for pkg in winget.iterdir():
+            if pkg.is_dir() and "Poppler" in pkg.name:
+                for sub in pkg.iterdir():
+                    if sub.is_dir() and "poppler" in sub.name.lower():
+                        bin_path = sub / "Library" / "bin"
+                        if bin_path.joinpath("pdftoppm.exe").exists():
+                            return str(bin_path)
+    return None
 
 
 def _resize_if_large(img: Image.Image, max_side: int) -> Image.Image:
@@ -37,7 +67,11 @@ def pdf_to_images(
         raise FileNotFoundError(f"PDF not found: {path}")
     if path.suffix.lower() != ".pdf":
         raise ValueError("File must be a PDF")
-    images = convert_from_path(str(path), dpi=dpi, thread_count=thread_count)
+    kwargs: dict = {"dpi": dpi, "thread_count": thread_count}
+    poppler_path = _get_poppler_path()
+    if poppler_path:
+        kwargs["poppler_path"] = poppler_path
+    images = convert_from_path(str(path), **kwargs)
     if max_side_len and max_side_len > 0:
         images = [_resize_if_large(im, max_side_len) for im in images]
     return images
