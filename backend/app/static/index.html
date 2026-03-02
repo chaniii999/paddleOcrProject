@@ -35,6 +35,26 @@
     .error { color: #c00; }
     .hidden { display: none; }
     a { color: #06c; }
+    .test-mode-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+    .toggle-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-size: 0.95rem; }
+    .toggle-label input { width: 1.1rem; height: 1.1rem; }
+    .test-mode-hint { font-size: 0.8rem; color: #888; }
+    #test-result-wrap { margin-top: 1rem; padding: 1rem; background: #f0f7ff; border-radius: 8px; border: 1px solid #cce; }
+    #test-result-wrap.hidden { display: none; }
+    .test-result-title { font-weight: 600; margin-bottom: 0.5rem; font-size: 0.95rem; }
+    .accuracy-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+    .accuracy-item { font-size: 0.9rem; }
+    .accuracy-item span.value { font-weight: 600; color: #06c; }
+    .diff-block { white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; line-height: 1.5; background: #fff; padding: 0.75rem; border-radius: 4px; max-height: 14rem; overflow: auto; margin-top: 0.5rem; word-break: break-all; }
+    .diff-legend { font-size: 0.75rem; color: #666; margin-bottom: 0.35rem; }
+    .diff-equal { color: #333; }
+    .diff-direct { color: #c00; text-decoration: line-through; background: #ffe6e6; }
+    .diff-ocr { color: #086; background: #e6f7ed; }
+    .diff-insert { color: #086; background: #e6f7ed; }
+    .diff-delete { color: #c00; text-decoration: line-through; background: #ffe6e6; }
+    .page-source-badge { font-size: 0.8rem; color: #666; margin-bottom: 0.35rem; }
+    .page-source-badge.direct { color: #086; }
+    .page-source-badge.ocr { color: #06c; }
   </style>
 </head>
 <body>
@@ -44,6 +64,13 @@
       <p class="upload-hint" id="upload-hint">PDF를 여기에 놓거나 클릭하여 선택</p>
       <p class="upload-filename hidden" id="upload-filename"></p>
       <input type="file" name="file" id="file-input" accept=".pdf">
+    </div>
+    <div class="test-mode-row">
+      <label class="toggle-label">
+        <input type="checkbox" id="test-mode-toggle" name="test_mode">
+        <span class="toggle-text">테스트 모드</span>
+      </label>
+      <span class="test-mode-hint" id="test-mode-hint">direct 추출 가능 PDF일 때만 diff·정확도 표시</span>
     </div>
     <button type="submit">텍스트 추출</button>
   </form>
@@ -57,6 +84,16 @@
       <button type="button" id="copy-btn" class="copy-btn">복사하기</button>
     </div>
     <div id="page-tabs" class="page-tabs"></div>
+  </div>
+  <div id="page-source-badge" class="page-source-badge hidden"></div>
+  <div id="test-result-wrap" class="hidden">
+    <div class="test-result-title" id="test-result-title">테스트 모드 결과</div>
+    <div id="test-accuracy" class="accuracy-row"></div>
+    <details open>
+      <summary>글자별 diff (틀린 곳 바로 확인)</summary>
+      <div class="diff-legend">일치(검정) · 오인식(빨간 취소선=정답, 초록=OCR) · 누락(빨간 취소선) · OCR만 인식(초록)</div>
+      <div id="test-diff" class="diff-block"></div>
+    </details>
   </div>
   <div id="result"></div>
 
@@ -76,6 +113,13 @@
 
     var currentPages = [];
     var droppedFile = null;
+    var currentTestPageResults = null;
+    var testResultWrap = document.getElementById('test-result-wrap');
+    var testResultTitle = document.getElementById('test-result-title');
+    var testAccuracy = document.getElementById('test-accuracy');
+    var testDiff = document.getElementById('test-diff');
+    var testModeToggle = document.getElementById('test-mode-toggle');
+    var pageSourceBadge = document.getElementById('page-source-badge');
 
     function setUploadFile(file) {
       droppedFile = file;
@@ -176,15 +220,101 @@
       });
     }
 
+    function renderTestModeResult(isTestMode, directAvailable, pageResults, pageIndex) {
+      if (!testResultWrap) return;
+      if (!isTestMode) {
+        testResultWrap.classList.add('hidden');
+        return;
+      }
+      testResultWrap.classList.remove('hidden');
+      if (!directAvailable || !pageResults || !pageResults.length) {
+        testResultTitle.textContent = '테스트 모드: direct 추출 불가 (스캔본 또는 텍스트 레이어 없음)';
+        testAccuracy.innerHTML = '';
+        testDiff.textContent = '';
+        return;
+      }
+      var pr = pageResults[pageIndex] || pageResults[0];
+      testResultTitle.textContent = '테스트 모드: 인식 정확도 (페이지 ' + pr.page + ')';
+      var acc = pr.accuracy || {};
+      var total = pr.total || {};
+      var html = '';
+      if (acc.hangul != null) {
+        html += '<span class="accuracy-item">한글 <span class="value">' + acc.hangul + '%</span> (' + (pr.correct && pr.correct.hangul) + '/' + total.hangul + ')</span>';
+      }
+      if (acc.digit != null) {
+        html += '<span class="accuracy-item">숫자 <span class="value">' + acc.digit + '%</span> (' + (pr.correct && pr.correct.digit) + '/' + total.digit + ')</span>';
+      }
+      if (acc.alpha != null) {
+        html += '<span class="accuracy-item">영어 <span class="value">' + acc.alpha + '%</span> (' + (pr.correct && pr.correct.alpha) + '/' + total.alpha + ')</span>';
+      }
+      if (!html) html = '<span class="accuracy-item">(비교할 문자 없음)</span>';
+      testAccuracy.innerHTML = html;
+      renderDiffSegments(testDiff, pr.diff_segments);
+    }
+
+    function renderDiffSegments(container, segments) {
+      if (!container) return;
+      container.innerHTML = '';
+      if (!segments || !segments.length) {
+        container.textContent = '(차이 없음)';
+        return;
+      }
+      segments.forEach(function (seg) {
+        if (seg.type === 'equal') {
+          var s = document.createElement('span');
+          s.className = 'diff-equal';
+          s.textContent = seg.text || '';
+          container.appendChild(s);
+        } else if (seg.type === 'replace') {
+          var wrap = document.createElement('span');
+          var sd = document.createElement('span');
+          sd.className = 'diff-direct';
+          sd.textContent = seg.direct || '';
+          var so = document.createElement('span');
+          so.className = 'diff-ocr';
+          so.textContent = seg.ocr || '';
+          wrap.appendChild(sd);
+          wrap.appendChild(so);
+          container.appendChild(wrap);
+        } else if (seg.type === 'insert') {
+          var si = document.createElement('span');
+          si.className = 'diff-insert';
+          si.textContent = seg.ocr || '';
+          container.appendChild(si);
+        } else if (seg.type === 'delete') {
+          var sd = document.createElement('span');
+          sd.className = 'diff-delete';
+          sd.textContent = seg.direct || '';
+          container.appendChild(sd);
+        }
+      });
+    }
+
     function showPage(index) {
       currentPageIndex = index;
       if (!currentPages[index]) return;
       var p = currentPages[index];
       result.textContent = p.text || '(텍스트 없음)';
+      if (pageSourceBadge) {
+        if (p.source === 'direct') {
+          pageSourceBadge.textContent = '이 페이지: direct 추출 (PDF 텍스트 레이어)';
+          pageSourceBadge.className = 'page-source-badge direct';
+          pageSourceBadge.classList.remove('hidden');
+        } else if (p.source === 'ocr') {
+          pageSourceBadge.textContent = '이 페이지: OCR 추출';
+          pageSourceBadge.className = 'page-source-badge ocr';
+          pageSourceBadge.classList.remove('hidden');
+        } else {
+          pageSourceBadge.classList.add('hidden');
+        }
+      }
       var buttons = pageTabs.querySelectorAll('button');
       buttons.forEach(function (btn, i) {
         btn.classList.toggle('active', i === index);
       });
+      if (currentTestPageResults && currentTestPageResults.length) {
+        renderTestModeResult(true, true, currentTestPageResults, index);
+      }
     }
 
     function renderPageTabs(pages) {
@@ -198,7 +328,7 @@
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'page-tab' + (i === 0 ? ' active' : '');
-        btn.textContent = p.page;
+        btn.textContent = p.source ? p.page + ' (' + p.source + ')' : p.page;
         btn.addEventListener('click', function () { showPage(i); });
         pageTabs.appendChild(btn);
       });
@@ -210,6 +340,9 @@
       pagesWrap.classList.add('hidden');
       pageTabs.innerHTML = '';
       currentPages = [];
+      currentTestPageResults = null;
+      if (testResultWrap) testResultWrap.classList.add('hidden');
+      if (pageSourceBadge) pageSourceBadge.classList.add('hidden');
     }
 
     function handleSubmit(e) {
@@ -227,6 +360,7 @@
 
       var fd = new FormData();
       fd.append('file', file);
+      fd.append('test_mode', testModeToggle.checked ? 'true' : 'false');
 
       var startMs = Date.now();
       var timerId = setInterval(function () {
@@ -246,10 +380,16 @@
           stopTimer();
 
           if (data.ok && data.pages && data.pages.length) {
+            currentTestPageResults = data.test_mode && data.page_results ? data.page_results : null;
             renderPageTabs(data.pages);
+            renderTestModeResult(!!data.test_mode, !!data.direct_available, currentTestPageResults, 0);
           } else if (data.ok && data.pages && data.pages.length === 0) {
+            currentTestPageResults = null;
+            testResultWrap.classList.add('hidden');
             result.textContent = '(추출된 페이지 없음)';
           } else {
+            currentTestPageResults = null;
+            testResultWrap.classList.add('hidden');
             result.textContent = '오류: ' + (data.error || '알 수 없음');
             result.classList.add('error');
           }
