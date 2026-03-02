@@ -2,7 +2,7 @@ import asyncio
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
 from app.services.ocr_service import extract_text_from_image, get_ocr_engine
 from app.services.pdf_direct_service import compute_diff_accuracy, extract_text_direct
@@ -10,25 +10,19 @@ from app.services.pdf_service import pdf_to_images, preprocess_for_ocr
 
 router = APIRouter()
 
-_ocr_engine = None
-
-
-def get_engine():
-    global _ocr_engine
-    if _ocr_engine is None:
-        _ocr_engine = get_ocr_engine()
-    return _ocr_engine
-
-
 # DPI 300으로 PDF 렌더 후, 960으로 리사이즈 → 큰 글자도 유효 글자 높이로 줄여 인식률 개선
 OCR_DPI = 300
 OCR_MAX_SIDE_LEN = 960
 
 
-def _run_ocr_sync(tmp_path: str) -> list[dict]:
-    """블로킹 OCR 로직. 긴 변 960px로 리사이즈해 큰 글자도 모델이 잘 아는 크기로 맞춤."""
+def get_ocr_engine_dep(request: Request):
+    """FastAPI Depends: 프로세스별로 lifespan에서 생성한 OCR 엔진을 주입."""
+    return request.app.state.ocr_engine
+
+
+def _run_ocr_sync(engine, tmp_path: str) -> list[dict]:
+    """블로킹 OCR 로직. 엔진은 호출측에서 주입 (프로세스당 1개)."""
     images = pdf_to_images(tmp_path, dpi=OCR_DPI, max_side_len=OCR_MAX_SIDE_LEN)
-    engine = get_engine()
     pages = []
     for i, img in enumerate(images):
         img = preprocess_for_ocr(img)
@@ -37,14 +31,14 @@ def _run_ocr_sync(tmp_path: str) -> list[dict]:
     return pages
 
 
-def _run_ocr_with_test_mode(tmp_path: str) -> dict:
+def _run_ocr_with_test_mode(engine, tmp_path: str) -> dict:
     """
     테스트 모드: direct 추출 시도 → OCR 실행 → 페이지 수가 같으면 diff/정확도 계산.
     정답 기준은 direct 추출 텍스트. pages에는 direct(정답)을 넣고, page_results에서 ocr과 비교.
     반환: { "pages": [...], "test_mode": True, "direct_available": bool, "page_results": [ ... ] }
     """
     direct_pages = extract_text_direct(tmp_path)
-    ocr_pages = _run_ocr_sync(tmp_path)
+    ocr_pages = _run_ocr_sync(engine, tmp_path)
 
     direct_available = direct_pages is not None and len(direct_pages) == len(ocr_pages)
 
@@ -92,6 +86,7 @@ MAX_PDF_SIZE_MB = 50
 async def ocr_from_pdf(
     file: UploadFile = File(...),
     test_mode: str = Form("false"),
+    engine=Depends(get_ocr_engine_dep),
 ):
     """
     스캔본 PDF를 업로드하면 페이지별로 OCR 후 텍스트 반환.
@@ -112,10 +107,9 @@ async def ocr_from_pdf(
 
     try:
         if is_test_mode:
-            data = await asyncio.to_thread(_run_ocr_with_test_mode, tmp_path)
+            data = await asyncio.to_thread(_run_ocr_with_test_mode, engine, tmp_path)
             return {"ok": True, "pages": data["pages"], "total_pages": len(data["pages"]), "test_mode": True, "direct_available": data["direct_available"], "page_results": data["page_results"]}
-        # 테스트 모드가 아닐 때는 무조건 OCR만 사용
-        pages = await asyncio.to_thread(_run_ocr_sync, tmp_path)
+        pages = await asyncio.to_thread(_run_ocr_sync, engine, tmp_path)
         return {"ok": True, "pages": pages, "total_pages": len(pages)}
     except Exception as e:
         return {"ok": False, "error": str(e)}

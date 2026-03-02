@@ -1,6 +1,7 @@
 import logging
 import os
 import warnings
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 # OneDNN 관련 Paddle 3.3+ CPU 추론 오류 우회 (ConvertPirAttribute2RuntimeAttribute)
@@ -17,11 +18,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from app.routers import health, ocr
+from app.services.ocr_service import get_ocr_engine
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """프로세스당 OCR 엔진을 한 번만 생성·보유. 워커별로 분리된 상태 유지."""
+    app.state.ocr_engine = get_ocr_engine()
+    try:
+        yield
+    finally:
+        app.state.ocr_engine = None
+
 
 app = FastAPI(
     title="의회문서 OCR API",
     description="스캔본 PDF에서 Paddle OCR로 텍스트 추출",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
