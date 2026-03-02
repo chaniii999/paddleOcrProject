@@ -113,11 +113,12 @@ SPACE_GAP_RATIO = 0.35
 COLUMN_GAP_RATIO = 2.8
 # 같은 줄로 볼 y 차이 상한 (이하면 같은 줄). 크게 잡아 PDF 줄바꿈을 존중
 SAME_LINE_Y_RATIO = 0.85
-# 줄 사이 세로 간격: 이 배수 초과면 빈 줄 1개, 큰 간격이면 빈 줄 2개 (PDF 배치 반영)
-PARAGRAPH_GAP_RATIO = 1.15
-PARAGRAPH_GAP_LARGE_RATIO = 2.0
-# 들여쓰기: 왼쪽 여백 대비 x 오프셋을 공백 수로 환산할 때 글자 너비 대비 비율
-INDENT_CHAR_WIDTH_RATIO = 0.6
+# 줄 사이 세로 간격: 이 배수 초과면 빈 줄 1개, 큰 간격이면 빈 줄 2개 (PDF 문단 배치 반영)
+# 0.95: 보통 줄간격(~0.5h)과 문단 구분(~1h 이상)을 구분해 문단마다 빈 줄 삽입
+PARAGRAPH_GAP_RATIO = 0.95
+PARAGRAPH_GAP_LARGE_RATIO = 1.9
+# 들여쓰기: 픽셀 오프셋을 공백 수로 환산. 작을수록 같은 오프셋에 공백 더 많이 (0.5 → 문단 들여쓰기 강화)
+INDENT_CHAR_WIDTH_RATIO = 0.5
 
 
 def _box_y_bounds(box) -> tuple[float, float]:
@@ -128,17 +129,23 @@ def _box_y_bounds(box) -> tuple[float, float]:
     return (min(ys), max(ys))
 
 
+# 빈 줄을 넣지 않는 최소 세로 간격 (이하면 같은 문단으로 간주)
+MIN_PARAGRAPH_GAP_RATIO = 0.4
+
+
 def _join_lines_with_paragraph_gaps(
     line_strings: list[str],
     line_y_ranges: list[tuple[float, float]],
     median_h: float,
 ) -> str:
-    """줄 문자열과 y 범위를 받아 단락 간격(빈 줄)을 반영해 합침."""
+    """줄 문자열과 y 범위를 받아 단락 간격(빈 줄)을 반영해 합침. PDF 문단 배치에 맞춤."""
     result_parts = []
     for i, s in enumerate(line_strings):
         if i > 0:
             gap = line_y_ranges[i][0] - line_y_ranges[i - 1][1]
-            if gap > median_h * PARAGRAPH_GAP_LARGE_RATIO:
+            if gap <= median_h * MIN_PARAGRAPH_GAP_RATIO:
+                pass
+            elif gap > median_h * PARAGRAPH_GAP_LARGE_RATIO:
                 result_parts.append("")
                 result_parts.append("")
             elif gap > median_h * PARAGRAPH_GAP_RATIO:
