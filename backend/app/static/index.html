@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>의회문서 OCR 테스트</title>
+  <style>
+    body { font-family: sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.25rem; }
+    form { display: flex; flex-direction: column; gap: 1rem; }
+    input[type="file"] { padding: 0.5rem; }
+    button { padding: 0.5rem 1rem; cursor: pointer; }
+    .elapsed { margin-top: 1rem; font-size: 0.9rem; color: #666; }
+    #result { margin-top: 0.5rem; white-space: pre-wrap; background: #f5f5f5; padding: 1rem; border-radius: 4px; min-height: 4rem; }
+    .error { color: #c00; }
+    a { color: #06c; }
+  </style>
+</head>
+<body>
+  <h1>의회문서 OCR 테스트</h1>
+  <p>PDF를 업로드하면 OCR 결과를 볼 수 있습니다. <a href="/docs">API 문서</a></p>
+  <form id="form">
+    <label>PDF 파일</label>
+    <input type="file" name="file" accept=".pdf" required>
+    <button type="submit">OCR 실행</button>
+  </form>
+  <div id="elapsed" class="elapsed"></div>
+  <div id="result"></div>
+
+  <script>
+    var form = document.getElementById('form');
+    var result = document.getElementById('result');
+    var elapsedEl = document.getElementById('elapsed');
+
+    function handleSubmit(e) {
+      e.preventDefault();
+      var input = form.querySelector('input[name="file"]');
+      if (!input.files.length) return;
+      elapsedEl.textContent = '';
+      result.textContent = '처리 중...';
+      result.classList.remove('error');
+
+      var fd = new FormData();
+      fd.append('file', input.files[0]);
+
+      var startMs = Date.now();
+      var timerId = setInterval(function () {
+        var sec = (Date.now() - startMs) / 1000;
+        elapsedEl.textContent = '경과 시간: ' + sec.toFixed(2) + '초';
+      }, 100);
+
+      function stopTimer() {
+        clearInterval(timerId);
+        elapsedEl.textContent = '경과 시간: ' + ((Date.now() - startMs) / 1000).toFixed(2) + '초';
+      }
+
+      fetch('/api/ocr', { method: 'POST', body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          stopTimer();
+
+          if (data.ok && data.pages) {
+            result.textContent = data.pages.map(function (p) {
+              return '--- 페이지 ' + p.page + ' ---\n' + (p.text || '(텍스트 없음)');
+            }).join('\n\n');
+          } else {
+            result.textContent = '오류: ' + (data.error || '알 수 없음');
+            result.classList.add('error');
+          }
+        })
+        .catch(function (err) {
+          stopTimer();
+          result.textContent = '오류: ' + err.message;
+          result.classList.add('error');
+        });
+    }
+
+    form.addEventListener('submit', handleSubmit);
+  </script>
+</body>
+</html>

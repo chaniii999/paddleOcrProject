@@ -1,0 +1,12 @@
+# FastAPI
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# Paddle OCR (Python 3.10). 3.3+ 에서 OneDNN CPU 오류 있음 → 3.2 이하로 제한
+paddlepaddle>=2.5.0,<3.3.0
+paddleocr>=2.7.0
+
+# PDF → 이미지 변환 (시스템에 Poppler 필요: Ubuntu/WSL `sudo apt-get install poppler-utils`)
+pdf2image>=1.16.3
+pillow>=10.0.0

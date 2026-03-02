@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 가상환경 (venv, conda 로컬)
+.venv/
+venv/
+env/
+.env.local
+.env.*.local
+
+# 환경 변수 (시크릿). .env.example 은 제외하고 커밋
+.env
+
+# IDE / 에디터
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Cursor / IDE 프로젝트 로컬
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 로그 / 임시
+*.log
+*.tmp
+.cache/
+
+# PaddleOCR / Paddle (다운로드 모델은 사용자 홈에 저장되므로 보통 제외 불필요)
+# 필요 시: .paddlex/
+
+# 테스트/커버리지
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
