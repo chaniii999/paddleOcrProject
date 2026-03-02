@@ -39,19 +39,22 @@ def get_ocr_engine(
 
 def _to_numpy(image):
     """
-    PIL Image → numpy.ndarray (PaddleOCR는 ndarray 또는 str 경로만 지원).
-    PIL인 경우 RGB로 통일해 전달 (RGBA/P/L 등은 인식 오류 원인 방지).
+    PIL Image → numpy.ndarray. PaddleOCR에 넘기기 전 RGB 통일·C-contiguous 복사.
+    DPI 300 대형 이미지에서도 엔진이 안정적으로 처리하도록 함.
     """
-    if isinstance(image, np.ndarray):
-        return image
     if isinstance(image, str):
         return image
     try:
         from PIL import Image
-        if isinstance(image, Image.Image) and image.mode != "RGB":
-            image = image.convert("RGB")
+        if isinstance(image, Image.Image):
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+            arr = np.array(image, dtype=np.uint8)
+            return np.ascontiguousarray(arr)
     except Exception:
         pass
+    if isinstance(image, np.ndarray):
+        return np.ascontiguousarray(image.copy())
     return np.array(image)
 
 

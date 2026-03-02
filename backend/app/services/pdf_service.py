@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from pdf2image import convert_from_path
-from PIL import Image, ImageEnhance
+from PIL import Image
 
 
 def _get_poppler_path() -> str | None:
@@ -36,20 +36,26 @@ def _get_poppler_path() -> str | None:
     return None
 
 
+# adaptiveThreshold·과보정 방지: 대비/선명도 보정 없이 RGB만 통일
+# (과한 전처리 시 2페이지 등에서 오인식)
+
+
 def preprocess_for_ocr(img: Image.Image) -> Image.Image:
     """
-    OCR 인식률 개선을 위한 이미지 전처리 (대비·선명도 보정).
-    흐리거나 어두운 스캔본·연속 페이지에 효과적. RGB로 통일해 PaddleOCR 입력 안정화.
+    OCR 입력용 최소 전처리. RGB 통일만 수행.
+    대비·선명도·이진화 미적용 → 엔진 내부 처리와 충돌·과적용 방지.
     """
     if img.mode != "RGB":
         img = img.convert("RGB")
-    img = ImageEnhance.Contrast(img).enhance(1.2)
-    img = ImageEnhance.Sharpness(img).enhance(1.15)
     return img
 
 
+# PaddleOCR 등은 32 단위 입력을 선호. 리사이즈 시 32 정렬해 내부 리사이즈 충돌 방지
+RESIZE_ALIGN = 32
+
+
 def _resize_if_large(img: Image.Image, max_side: int) -> Image.Image:
-    """긴 변이 max_side를 넘으면 비율 유지하며 리사이즈 (OCR 속도 개선)."""
+    """긴 변이 max_side를 넘으면 비율 유지 리사이즈. 출력 크기는 RESIZE_ALIGN 배수로 맞춤."""
     w, h = img.size
     if max(w, h) <= max_side:
         return img
@@ -59,19 +65,21 @@ def _resize_if_large(img: Image.Image, max_side: int) -> Image.Image:
     else:
         new_h = max_side
         new_w = int(w * max_side / h)
+    new_w = max(RESIZE_ALIGN, (new_w // RESIZE_ALIGN) * RESIZE_ALIGN)
+    new_h = max(RESIZE_ALIGN, (new_h // RESIZE_ALIGN) * RESIZE_ALIGN)
     return img.resize((new_w, new_h), Image.Resampling.LANCZOS)
 
 
 def pdf_to_images(
     pdf_path: str | Path,
-    dpi: int = 150,
-    max_side_len: int = 1280,
+    dpi: int = 300,
+    max_side_len: int = 960,
     thread_count: int = 2,
 ):
     """
     PDF 파일을 페이지별 이미지(PIL Image) 리스트로 변환.
-    - dpi: 150이면 평문서 OCR 속도에 유리, 스캔본은 200 권장.
-    - max_side_len: 긴 변 제한(픽셀). 넘으면 리사이즈해 CPU 부담 감소.
+    OCR용: dpi=300, max_side_len=960. 큰 글자도 리사이즈로 유효 높이에 맞춰 인식 개선.
+    - max_side_len: 긴 변 제한(픽셀). 초과 시 비율 유지·32 정렬 리사이즈 1회만.
     - thread_count: 다중 페이지 변환 시 스레드 수 (기본 2).
     """
     path = Path(pdf_path)

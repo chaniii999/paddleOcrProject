@@ -46,16 +46,26 @@
     .accuracy-row { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
     .accuracy-item { font-size: 0.9rem; }
     .accuracy-item span.value { font-weight: 600; color: #06c; }
-    .test-result-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+    .test-result-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; align-items: center; }
+    .test-view-toggle { display: flex; gap: 0; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; }
+    .test-view-btn { padding: 0.35rem 0.6rem; border: none; background: #fff; color: #666; cursor: pointer; font-size: 0.85rem; }
+    .test-view-btn:hover { background: #f0f0f0; }
+    .test-view-btn.active { background: #06c; color: #fff; }
     .copy-diff-btn { padding: 0.4rem 0.75rem; border: 1px solid #086; background: #fff; color: #086; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
     .copy-diff-btn:hover { background: #e6f7ed; }
     .diff-block { white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; line-height: 1.5; background: #fff; padding: 0.75rem; border-radius: 4px; max-height: 14rem; overflow: auto; margin-top: 0.5rem; word-break: break-all; }
     .diff-legend { font-size: 0.75rem; color: #666; margin-bottom: 0.35rem; }
+    .diff-color-legend { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; font-size: 0.8rem; color: #444; margin-bottom: 0.5rem; }
+    .diff-color-legend .item { display: flex; align-items: center; gap: 0.35rem; }
+    .diff-color-legend .sample { padding: 0.1rem 0.35rem; border-radius: 2px; font-weight: 600; }
+    .diff-color-legend .sample.equal { color: #333; background: #eee; }
+    .diff-color-legend .sample.direct { color: #086; background: #e6f7ed; }
+    .diff-color-legend .sample.ocr { color: #c00; text-decoration: line-through; background: #ffe6e6; }
     .diff-equal { color: #333; }
-    .diff-direct { color: #c00; text-decoration: line-through; background: #ffe6e6; }
-    .diff-ocr { color: #086; background: #e6f7ed; }
-    .diff-insert { color: #086; background: #e6f7ed; }
-    .diff-delete { color: #c00; text-decoration: line-through; background: #ffe6e6; }
+    .diff-direct { color: #086; background: #e6f7ed; }
+    .diff-ocr { color: #c00; text-decoration: line-through; background: #ffe6e6; }
+    .diff-insert { color: #c00; text-decoration: line-through; background: #ffe6e6; }
+    .diff-delete { color: #086; background: #e6f7ed; }
     .page-source-badge { font-size: 0.8rem; color: #666; margin-bottom: 0.35rem; }
     .page-source-badge.direct { color: #086; }
     .page-source-badge.ocr { color: #06c; }
@@ -93,7 +103,17 @@
   <div id="test-result-wrap" class="hidden">
     <div class="test-result-title" id="test-result-title">테스트 모드 결과</div>
     <div id="test-accuracy" class="accuracy-row"></div>
+    <div id="diff-color-legend" class="diff-color-legend hidden">
+      <span class="item"><span class="sample equal">일치</span> 정답(direct)과 OCR이 동일하게 인식</span>
+      <span class="item"><span class="sample direct">정답</span> 초록: 정답(direct)에 있던 글자 (오인식 시 정답 쪽, 누락 시 OCR이 못 읽은 부분)</span>
+      <span class="item"><span class="sample ocr">OCR</span> 빨간 취소선: OCR이 인식한 글자 (오인식 시 OCR 결과, 정답에 없는데 OCR만 읽은 부분)</span>
+    </div>
     <div id="test-result-actions" class="test-result-actions hidden">
+      <span class="test-view-toggle">
+        <button type="button" id="test-view-diff" class="test-view-btn active">diff 보기</button>
+        <button type="button" id="test-view-direct" class="test-view-btn">디지털 PDF 본</button>
+        <button type="button" id="test-view-ocr" class="test-view-btn">OCR 본</button>
+      </span>
       <button type="button" id="copy-diff-btn" class="copy-diff-btn">diff 결과 복사</button>
     </div>
   </div>
@@ -119,10 +139,16 @@
     var testResultWrap = document.getElementById('test-result-wrap');
     var testResultTitle = document.getElementById('test-result-title');
     var testAccuracy = document.getElementById('test-accuracy');
+    var diffColorLegend = document.getElementById('diff-color-legend');
     var testResultActions = document.getElementById('test-result-actions');
     var copyDiffBtn = document.getElementById('copy-diff-btn');
     var testModeToggle = document.getElementById('test-mode-toggle');
     var pageSourceBadge = document.getElementById('page-source-badge');
+    var testViewDiffBtn = document.getElementById('test-view-diff');
+    var testViewDirectBtn = document.getElementById('test-view-direct');
+    var testViewOcrBtn = document.getElementById('test-view-ocr');
+
+    var currentTestViewMode = 'diff';
 
     function setUploadFile(file) {
       droppedFile = file;
@@ -264,6 +290,7 @@
       if (!isTestMode) {
         testResultWrap.classList.add('hidden');
         if (testResultActions) testResultActions.classList.add('hidden');
+        if (diffColorLegend) diffColorLegend.classList.add('hidden');
         return;
       }
       testResultWrap.classList.remove('hidden');
@@ -271,9 +298,11 @@
         testResultTitle.textContent = '테스트 모드: direct 추출 불가 (스캔본 또는 텍스트 레이어 없음)';
         testAccuracy.innerHTML = '';
         if (testResultActions) testResultActions.classList.add('hidden');
+        if (diffColorLegend) diffColorLegend.classList.add('hidden');
         return;
       }
       if (testResultActions) testResultActions.classList.remove('hidden');
+      if (diffColorLegend) diffColorLegend.classList.remove('hidden');
       var pr = pageResults[pageIndex] || pageResults[0];
       testResultTitle.textContent = '테스트 모드: 인식 정확도 (페이지 ' + pr.page + ')';
       var acc = pr.accuracy || {};
@@ -330,19 +359,34 @@
       });
     }
 
+    function setTestViewMode(mode) {
+      currentTestViewMode = mode;
+      if (testViewDiffBtn) testViewDiffBtn.classList.toggle('active', mode === 'diff');
+      if (testViewDirectBtn) testViewDirectBtn.classList.toggle('active', mode === 'direct');
+      if (testViewOcrBtn) testViewOcrBtn.classList.toggle('active', mode === 'ocr');
+      showPage(currentPageIndex);
+    }
+
     function showPage(index) {
       currentPageIndex = index;
       if (!currentPages[index]) return;
       var p = currentPages[index];
       var pr = currentTestPageResults && currentTestPageResults[index] ? currentTestPageResults[index] : null;
-      var showDiff = pr && pr.diff_segments && pr.diff_segments.length > 0;
+      var hasTestResult = pr && currentTestPageResults && currentTestPageResults.length > 0;
+      var showDiff = hasTestResult && currentTestViewMode === 'diff' && pr.diff_segments && pr.diff_segments.length > 0;
 
-      if (showDiff) {
+      if (hasTestResult && currentTestViewMode === 'direct') {
+        result.classList.remove('diff-view');
+        result.textContent = (pr.direct_text != null ? pr.direct_text : '') || '(텍스트 없음)';
+      } else if (hasTestResult && currentTestViewMode === 'ocr') {
+        result.classList.remove('diff-view');
+        result.textContent = (pr.ocr_text != null ? pr.ocr_text : '') || '(텍스트 없음)';
+      } else if (showDiff) {
         result.classList.add('diff-view');
         result.innerHTML = '';
         var legend = document.createElement('div');
         legend.className = 'diff-legend';
-        legend.textContent = '일치(검정) · 오인식(빨간 취소선=정답, 초록=OCR) · 누락(빨간 취소선) · OCR만 인식(초록)';
+        legend.textContent = '아래 글자색 의미: 검정=일치, 초록=정답(direct) 쪽, 빨간 취소선=OCR 쪽 (상단 범례 참고)';
         result.appendChild(legend);
         renderDiffSegments(result, pr.diff_segments);
       } else {
@@ -466,6 +510,9 @@
     viewAllBtn.addEventListener('click', handleViewAllClick);
     copyBtn.addEventListener('click', handleCopyClick);
     if (copyDiffBtn) copyDiffBtn.addEventListener('click', handleCopyDiffClick);
+    if (testViewDiffBtn) testViewDiffBtn.addEventListener('click', function () { setTestViewMode('diff'); });
+    if (testViewDirectBtn) testViewDirectBtn.addEventListener('click', function () { setTestViewMode('direct'); });
+    if (testViewOcrBtn) testViewOcrBtn.addEventListener('click', function () { setTestViewMode('ocr'); });
     form.addEventListener('submit', handleSubmit);
   </script>
 </body>

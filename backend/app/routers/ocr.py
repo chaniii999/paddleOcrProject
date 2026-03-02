@@ -20,9 +20,14 @@ def get_engine():
     return _ocr_engine
 
 
+# DPI 300으로 PDF 렌더 후, 960으로 리사이즈 → 큰 글자도 유효 글자 높이로 줄여 인식률 개선
+OCR_DPI = 300
+OCR_MAX_SIDE_LEN = 960
+
+
 def _run_ocr_sync(tmp_path: str) -> list[dict]:
-    """블로킹 OCR 로직. 스레드에서 실행해 이벤트 루프를 막지 않음. DPI 200으로 스캔/소문자 인식 개선."""
-    images = pdf_to_images(tmp_path, dpi=200, max_side_len=1600)
+    """블로킹 OCR 로직. 긴 변 960px로 리사이즈해 큰 글자도 모델이 잘 아는 크기로 맞춤."""
+    images = pdf_to_images(tmp_path, dpi=OCR_DPI, max_side_len=OCR_MAX_SIDE_LEN)
     engine = get_engine()
     pages = []
     for i, img in enumerate(images):
