@@ -81,6 +81,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8100
 
 - **원인**: (1) 200 DPI로 큰 이미지 → detection/recognition 부담 (2) `use_angle_cls=True`로 매번 각도 분류 (3) CPU만 사용.
 - **조치**: DPI 150, `max_side_len=1280` 리사이즈, `use_angle_cls=False`(정방향 문서). 스캔본·회전본이 필요하면 `pdf_to_images(..., dpi=200)`, `get_ocr_engine(use_angle_cls=True)`로 조정 가능.
+- **리팩터**: OCR 블로킹 구간을 `asyncio.to_thread`로 실행해 이벤트 루프 비차단. PDF 다중 페이지 변환에 `thread_count=2` 사용.
 
 ---
 

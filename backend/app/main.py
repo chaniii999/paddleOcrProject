@@ -1,8 +1,16 @@
+import logging
 import os
+import warnings
 from pathlib import Path
 
 # OneDNN 관련 Paddle 3.3+ CPU 추론 오류 우회 (ConvertPirAttribute2RuntimeAttribute)
 os.environ["FLAGS_use_mkldnn"] = "0"
+
+# Paddle/PaddleOCR 실행 시 반복 출력되는 로그·경고 억제
+os.environ["DISABLE_AUTO_LOGGING_CONFIG"] = "1"
+warnings.filterwarnings("ignore", message=".*ccache.*", category=UserWarning)
+for _name in ("ppocr", "paddle", "paddlex"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

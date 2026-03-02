@@ -1,3 +1,4 @@
+import asyncio
 import tempfile
 from pathlib import Path
 
@@ -18,6 +19,17 @@ def get_engine():
     return _ocr_engine
 
 
+def _run_ocr_sync(tmp_path: str):
+    """블로킹 OCR 로직. 스레드에서 실행해 이벤트 루프를 막지 않음."""
+    images = pdf_to_images(tmp_path, dpi=150, max_side_len=1280)
+    engine = get_engine()
+    pages = []
+    for i, img in enumerate(images):
+        text = extract_text_from_image(engine, img)
+        pages.append({"page": i + 1, "text": text})
+    return pages
+
+
 @router.post("")
 @router.post("/from-pdf")
 async def ocr_from_pdf(file: UploadFile = File(...)):
@@ -33,13 +45,7 @@ async def ocr_from_pdf(file: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
-        # dpi 150 + 긴 변 1280 제한 → 평문서 1페이지 OCR 속도 개선 (기존 200dpi 대비)
-        images = pdf_to_images(tmp_path, dpi=150, max_side_len=1280)
-        engine = get_engine()
-        pages = []
-        for i, img in enumerate(images):
-            text = extract_text_from_image(engine, img)
-            pages.append({"page": i + 1, "text": text})
+        pages = await asyncio.to_thread(_run_ocr_sync, tmp_path)
         return {"ok": True, "pages": pages, "total_pages": len(pages)}
     except Exception as e:
         return {"ok": False, "error": str(e)}

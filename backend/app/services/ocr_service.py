@@ -1,7 +1,16 @@
 """Paddle OCR로 이미지에서 텍스트 추출."""
 
+import logging
+
 import numpy as np
 from paddleocr import PaddleOCR
+
+# "Creating model" 등 INFO 로그 억제
+try:
+    from paddleocr import logger as _paddleocr_logger
+    _paddleocr_logger.setLevel(logging.ERROR)
+except Exception:
+    pass
 
 
 def get_ocr_engine(use_angle_cls: bool = False, lang: str = "korean"):

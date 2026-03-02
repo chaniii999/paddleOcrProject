@@ -4,6 +4,7 @@
 
 - **기술 스택**: Python 3.10, FastAPI (테스트용 HTML 포함)
 - **세팅·진행 상황**: [GUIDE.md](./GUIDE.md) 참고
+- **커밋 규칙**: [COMMIT_CONVENTION.md](./COMMIT_CONVENTION.md) (한글 제목 필수)
 
 ## 빠른 실행
 

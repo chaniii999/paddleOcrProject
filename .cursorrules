@@ -1,0 +1,9 @@
+# 이 프로젝트 공통 규칙
+
+## 커밋 메시지 (Generate Commit Message 시 필수)
+- 제목·본문은 **한글**로 작성. 영문으로 제안하지 않음.
+- 영문 허용: 타입(feat, fix, docs, style, refactor, test, chore), 범위(ocr, api 등), 기술 용어(OCR, API, PDF 등)만.
+- 형식: `<타입>(<범위>): <한글 제목>` (50자 이내, 마침표 없음)
+- 예: feat(ocr): OCR 정확도 개선을 위해 전처리 필터를 추가함
+
+상세: .cursor/rules/commit-convention.mdc, COMMIT_CONVENTION.md

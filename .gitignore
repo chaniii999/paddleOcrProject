@@ -37,8 +37,11 @@ env/
 *.swo
 *~
 
-# Cursor / IDE 프로젝트 로컬
-.cursor/
+# Cursor (rules는 커밋해서 커밋 메시지 규칙 등 프로젝트에 적용)
+# .cursor/
+# .cursor/rules/ 는 버전 관리에 포함 권장
+.cursor/*
+!.cursor/rules/
 
 # OS
 .DS_Store
