@@ -11,8 +11,14 @@ PDF 텍스트 레이어의 라인별 bbox를 이용해 이미지 크롭 + train.
 """
 
 import argparse
+import sys
+import time
 import fitz  # pymupdf
 from pathlib import Path
+
+# PowerShell 등에서 출력 즉시 표시
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
 
 
 def parse_args():
@@ -66,6 +72,24 @@ def _collect_pdfs(path: Path) -> list[Path]:
     return []
 
 
+def _count_total_pages(pdfs: list[Path]) -> int:
+    total = 0
+    for i, p in enumerate(pdfs):
+        try:
+            doc = fitz.open(p)
+            total += len(doc)
+            doc.close()
+        except Exception:
+            pass
+        sys.stdout.write(f"\r페이지 수 계산 중... {i + 1}/{len(pdfs)} PDF")
+        sys.stdout.flush()
+    return total
+
+
+def _log(msg: str, flush: bool = True) -> None:
+    print(msg, flush=flush)
+
+
 def _extract_lines_with_bbox(page: fitz.Page) -> list[tuple[fitz.Rect, str]]:
     """페이지에서 라인별 (bbox, text) 추출."""
     lines: list[tuple[fitz.Rect, str]] = []
@@ -99,24 +123,33 @@ def _extract_lines_with_bbox(page: fitz.Page) -> list[tuple[fitz.Rect, str]]:
 
 def main():
     args = parse_args()
+    _log("시작...")
     pdf_path = Path(args.pdfs).resolve()
     out_dir = Path(args.output).resolve()
     imgs_dir = out_dir / "imgs"
     imgs_dir.mkdir(parents=True, exist_ok=True)
 
+    _log(f"PDF 검색: {pdf_path}")
     pdfs = _collect_pdfs(pdf_path)
     if not pdfs:
-        print(f"[오류] PDF 없음: {pdf_path}")
+        _log(f"[오류] PDF 없음: {pdf_path}")
         return
+    _log(f"PDF {len(pdfs)}개 발견")
+
+    _log("총 페이지 수 계산 중...")
+    total_pages = _count_total_pages(pdfs)
+    _log(f"총 {total_pages}페이지. 처리 시작\n")
 
     train_lines: list[str] = []
     idx = 0
+    pages_done = 0
+    start_time = time.perf_counter()
 
-    for pdf_file in pdfs:
+    for pdf_idx, pdf_file in enumerate(pdfs):
         try:
             doc = fitz.open(pdf_file)
         except Exception as e:
-            print(f"[경고] 열기 실패 {pdf_file}: {e}")
+            _log(f"[경고] 열기 실패 {pdf_file}: {e}")
             continue
         for page_no in range(len(doc)):
             page = doc[page_no]
@@ -149,17 +182,31 @@ def main():
                 rel_path = f"imgs/{img_name}"  # data_dir 기준 상대 경로
                 train_lines.append(f"{rel_path}\t{text_clean}")
                 idx += 1
+            pages_done += 1
+            elapsed = time.perf_counter() - start_time
+            pct = 100 * pages_done / total_pages if total_pages else 0
+            eta = (elapsed / pages_done * (total_pages - pages_done)) if pages_done else 0
+            line = (
+                f"[진행] PDF {pdf_idx + 1}/{len(pdfs)} | "
+                f"페이지 {pages_done}/{total_pages} ({pct:.1f}%) | "
+                f"라인 {idx}건 | "
+                f"경과 {elapsed:.0f}초"
+            )
+            if pages_done > 0 and total_pages > pages_done:
+                line += f" | 남은 시간 약 {eta:.0f}초"
+            _log(line)
         doc.close()
 
     if not train_lines:
-        print("[오류] 추출된 라인 없음. 텍스트 레이어가 있는 디지털 PDF인지 확인하세요.")
+        _log("[오류] 추출된 라인 없음. 텍스트 레이어가 있는 디지털 PDF인지 확인하세요.")
         return
 
+    elapsed_total = time.perf_counter() - start_time
     train_path = out_dir / "train_list.txt"
     with open(train_path, "w", encoding="utf-8") as f:
         f.write("\n".join(train_lines))
-    print(f"train_list.txt 생성: {train_path} ({len(train_lines)}건)")
-    print(f"  → train.txt 내 경로는 data_dir 기준 상대경로(imgs/xxx.png)")
+    _log(f"\ntrain_list.txt 생성: {train_path} ({len(train_lines)}건)")
+    _log(f"총 소요 시간: {elapsed_total:.0f}초 ({elapsed_total / 60:.1f}분)")
 
     if args.val_ratio > 0:
         import random
@@ -171,9 +218,9 @@ def main():
         val_path = out_dir / "val_list.txt"
         with open(val_path, "w", encoding="utf-8") as f:
             f.write("\n".join(val_lines))
-        print(f"val_list.txt 생성: {val_path} ({len(val_lines)}건)")
+        _log(f"val_list.txt 생성: {val_path} ({len(val_lines)}건)")
 
-    print(f"이미지 저장: {imgs_dir}")
+    _log(f"이미지 저장: {imgs_dir}")
 
 
 if __name__ == "__main__":

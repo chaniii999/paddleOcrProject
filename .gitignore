@@ -49,6 +49,9 @@ Thumbs.db
 *.tmp
 .cache/
 
+# 파인튜닝 학습 데이터 (생성물)
+train_data/
+
 # PaddleOCR / Paddle (다운로드 모델은 사용자 홈에 저장되므로 보통 제외 불필요)
 # 필요 시: .paddlex/
 
