@@ -1,0 +1,415 @@
+/* ============================================
+   의회문서 OCR 테스트 — 스타일
+   카피용: 이 파일만 복사하면 스타일 적용 가능
+   ============================================ */
+
+/* ----------------------------------------
+   레이아웃·기본
+   ---------------------------------------- */
+body {
+  font-family: sans-serif;
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+h1 {
+  font-size: 1.25rem;
+}
+
+a {
+  color: #06c;
+}
+
+/* ----------------------------------------
+   폼·업로드 영역
+   ---------------------------------------- */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.upload-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.upload-zone:hover {
+  border-color: #06c;
+  background: #f8fbff;
+}
+
+.upload-zone.dragover {
+  border-color: #06c;
+  background: #e6f2ff;
+}
+
+.upload-zone .upload-hint {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.upload-zone .upload-filename {
+  color: #06c;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+input[type="file"] {
+  display: none;
+}
+
+button {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+/* ----------------------------------------
+   테스트 모드 토글
+   ---------------------------------------- */
+.test-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.toggle-label input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.test-mode-hint {
+  font-size: 0.8rem;
+  color: #888;
+}
+
+/* ----------------------------------------
+   경과 시간·결과 영역
+   ---------------------------------------- */
+.elapsed {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.pages-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.pages-wrap.hidden {
+  display: none;
+}
+
+#result {
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+  background: #f5f5f5;
+  padding: 1rem;
+  border-radius: 4px;
+  min-height: 4rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#result.diff-view {
+  font-family: monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.error {
+  color: #c00;
+}
+
+/* ----------------------------------------
+   결과 툴바·페이지 탭
+   ---------------------------------------- */
+.result-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.toggle-btn {
+  padding: 0.4rem 0.75rem;
+  border: none;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.toggle-btn:hover {
+  background: #f0f0f0;
+}
+
+.toggle-btn.active {
+  background: #06c;
+  color: #fff;
+}
+
+.copy-btn {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #06c;
+  background: #fff;
+  color: #06c;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.copy-btn:hover {
+  background: #e6f2ff;
+}
+
+.page-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.page-tabs.hidden {
+  display: none;
+}
+
+.page-tab {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.page-tab:hover {
+  background: #f0f0f0;
+}
+
+.page-tab.active {
+  background: #06c;
+  color: #fff;
+  border-color: #06c;
+}
+
+.page-source-badge {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 0.35rem;
+}
+
+.page-source-badge.direct {
+  color: #086;
+}
+
+.page-source-badge.ocr {
+  color: #06c;
+}
+
+/* ----------------------------------------
+   테스트 모드 결과 (diff·정확도)
+   ---------------------------------------- */
+#test-result-wrap {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f0f7ff;
+  border-radius: 8px;
+  border: 1px solid #cce;
+}
+
+#test-result-wrap.hidden {
+  display: none;
+}
+
+.test-result-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.accuracy-row {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.accuracy-item {
+  font-size: 0.9rem;
+}
+
+.accuracy-item span.value {
+  font-weight: 600;
+  color: #06c;
+}
+
+.test-result-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+  align-items: center;
+}
+
+.test-view-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.test-view-btn {
+  padding: 0.35rem 0.6rem;
+  border: none;
+  background: #fff;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.test-view-btn:hover {
+  background: #f0f0f0;
+}
+
+.test-view-btn.active {
+  background: #06c;
+  color: #fff;
+}
+
+.copy-diff-btn {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid #086;
+  background: #fff;
+  color: #086;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.copy-diff-btn:hover {
+  background: #e6f7ed;
+}
+
+/* ----------------------------------------
+   diff 색상 범례
+   ---------------------------------------- */
+.diff-color-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.8rem;
+  color: #444;
+  margin-bottom: 0.5rem;
+}
+
+.diff-color-legend .item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.diff-color-legend .sample {
+  padding: 0.1rem 0.35rem;
+  border-radius: 2px;
+  font-weight: 600;
+}
+
+.diff-color-legend .sample.equal {
+  color: #333;
+  background: #eee;
+}
+
+.diff-color-legend .sample.direct {
+  color: #086;
+  background: #e6f7ed;
+}
+
+.diff-color-legend .sample.ocr {
+  color: #c00;
+  text-decoration: line-through;
+  background: #ffe6e6;
+}
+
+/* ----------------------------------------
+   diff 텍스트 색상
+   ---------------------------------------- */
+.diff-block {
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  background: #fff;
+  padding: 0.75rem;
+  border-radius: 4px;
+  max-height: 14rem;
+  overflow: auto;
+  margin-top: 0.5rem;
+  word-break: break-all;
+}
+
+.diff-legend {
+  font-size: 0.75rem;
+  color: #666;
+  margin-bottom: 0.35rem;
+}
+
+.diff-equal {
+  color: #333;
+}
+
+.diff-direct {
+  color: #086;
+  background: #e6f7ed;
+}
+
+.diff-ocr {
+  color: #c00;
+  text-decoration: line-through;
+  background: #ffe6e6;
+}
+
+.diff-insert {
+  color: #c00;
+  text-decoration: line-through;
+  background: #ffe6e6;
+}
+
+.diff-delete {
+  color: #086;
+  background: #e6f7ed;
+}
+
+/* ----------------------------------------
+   유틸
+   ---------------------------------------- */
+.hidden {
+  display: none;
+}

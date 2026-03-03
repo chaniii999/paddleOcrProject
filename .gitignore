@@ -61,3 +61,4 @@ train_data/
 htmlcov/
 .tox/
 .nox/
+train_data.zip

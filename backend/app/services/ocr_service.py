@@ -1,8 +1,17 @@
 """Paddle OCR 엔진 생성 및 이미지→텍스트 추출. 레이아웃 후처리는 ocr_layout."""
 
 import logging
+import os
 import tempfile
+import warnings
 from pathlib import Path
+
+# Paddle/PaddleOCR 초기화 전 환경 설정 (이식 시 ocr_service import 시점에 적용)
+os.environ.setdefault("FLAGS_use_mkldnn", "0")
+os.environ.setdefault("DISABLE_AUTO_LOGGING_CONFIG", "1")
+warnings.filterwarnings("ignore", message=".*ccache.*", category=UserWarning)
+for _name in ("ppocr", "paddle", "paddlex"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
 
 import numpy as np
 from paddleocr import PaddleOCR

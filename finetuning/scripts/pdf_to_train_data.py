@@ -81,13 +81,18 @@ def _count_total_pages(pdfs: list[Path]) -> int:
             doc.close()
         except Exception:
             pass
-        sys.stdout.write(f"\r페이지 수 계산 중... {i + 1}/{len(pdfs)} PDF")
-        sys.stdout.flush()
+        _progress(f"페이지 수 계산 중... {i + 1}/{len(pdfs)} PDF")
     return total
 
 
 def _log(msg: str, flush: bool = True) -> None:
     print(msg, flush=flush)
+
+
+def _progress(msg: str) -> None:
+    """한 줄에서 실시간 갱신 (\\r 사용)."""
+    sys.stdout.write(f"\r{msg:<80}")
+    sys.stdout.flush()
 
 
 def _extract_lines_with_bbox(page: fitz.Page) -> list[tuple[fitz.Rect, str]]:
@@ -194,9 +199,10 @@ def main():
             )
             if pages_done > 0 and total_pages > pages_done:
                 line += f" | 남은 시간 약 {eta:.0f}초"
-            _log(line)
+            _progress(line)
         doc.close()
 
+    _progress("")  # 진행 줄 비우기
     if not train_lines:
         _log("[오류] 추출된 라인 없음. 텍스트 레이어가 있는 디지털 PDF인지 확인하세요.")
         return
@@ -205,7 +211,7 @@ def main():
     train_path = out_dir / "train_list.txt"
     with open(train_path, "w", encoding="utf-8") as f:
         f.write("\n".join(train_lines))
-    _log(f"\ntrain_list.txt 생성: {train_path} ({len(train_lines)}건)")
+    _log(f"train_list.txt 생성: {train_path} ({len(train_lines)}건)")
     _log(f"총 소요 시간: {elapsed_total:.0f}초 ({elapsed_total / 60:.1f}분)")
 
     if args.val_ratio > 0:

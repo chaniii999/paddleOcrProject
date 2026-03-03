@@ -6,17 +6,33 @@ import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import MAX_PDF_SIZE_MB
 from app.services.ocr_runner import run_ocr_sync, run_ocr_with_test_mode
 from app.services.ocr_service import get_ocr_engine
 
 router = APIRouter()
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
-# FastAPI Depends: 요청 시점에 app.state에 들어 있는 OCR 엔진을 꺼내 주입.
+# FastAPI Depends: 요청 시점에 app.state의 OCR 엔진을 반환. 없으면 lazy init 후 저장.
 def get_ocr_engine_dep(request: Request):
-    return request.app.state.ocr_engine
+    engine = getattr(request.app.state, "ocr_engine", None)
+    if engine is None:
+        engine = get_ocr_engine()
+        request.app.state.ocr_engine = engine
+    return engine
+
+
+# 테스트 UI (이식 시 선택적 사용)
+@router.get("/test")
+def ocr_test_ui():
+    return FileResponse(_STATIC_DIR / "index.html")
+
+
+router.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="ocr_static")
 
 
 # PDF 업로드 받아 확장자·용량 검사 후, 테스트 모드 여부에 따라 OCR만 또는 direct+OCR+diff 실행해 JSON 반환.
