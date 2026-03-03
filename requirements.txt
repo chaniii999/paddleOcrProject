@@ -1,0 +1,26 @@
+# GPU 사용 시: 먼저 paddlepaddle (CPU) 는 설치하지 말고,
+# 아래 중 CUDA 버전에 맞는 paddlepaddle-gpu 를 설치한 뒤
+# pip install -r requirements-gpu.txt 실행.
+#
+
+# [권장] GTX 1060 (Pascal) — cu118:
+#   pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
+#   (cu129는 검출 실패로 OCR 미동작 가능)
+#
+# Turing/Ampere 이상 — cu126 또는 cu129:
+#   pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+#   pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/
+#
+# paddlepaddle-gpu 는 위에서 따로 설치하므로 여기에는 포함하지 않음.
+
+# FastAPI
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# Paddle OCR (paddlepaddle-gpu는 별도 설치)
+paddleocr>=2.7.0
+
+# PDF → 이미지 변환 + 디지털 PDF 직접 텍스트 추출 (테스트 모드용)
+pymupdf>=1.23.0
+pillow>=10.0.0

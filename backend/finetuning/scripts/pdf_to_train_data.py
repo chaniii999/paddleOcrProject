@@ -11,6 +11,7 @@ PDF 텍스트 레이어의 라인별 bbox를 이용해 이미지 크롭 + train.
 """
 
 import argparse
+import random
 import sys
 import time
 import fitz  # pymupdf
@@ -60,6 +61,12 @@ def parse_args():
         type=int,
         default=2,
         help="크롭 시 bbox 주변 패딩 픽셀",
+    )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=None,
+        help="최대 샘플 수 (초과 시 랜덤 샘플링). 예: 10000",
     )
     return parser.parse_args()
 
@@ -207,6 +214,22 @@ def main():
         _log("[오류] 추출된 라인 없음. 텍스트 레이어가 있는 디지털 PDF인지 확인하세요.")
         return
 
+    if args.max_samples is not None and len(train_lines) > args.max_samples:
+        random.seed(42)
+        train_lines = random.sample(train_lines, args.max_samples)
+        _log(f"[샘플링] {args.max_samples}건으로 제한")
+        # 샘플에 포함되지 않은 이미지 삭제
+        sampled_rel = {line.split("\t")[0] for line in train_lines}
+        removed = 0
+        for f in imgs_dir.iterdir():
+            if f.is_file():
+                rel = str(f.relative_to(out_dir)).replace("\\", "/")
+                if rel not in sampled_rel:
+                    f.unlink(missing_ok=True)
+                    removed += 1
+        if removed:
+            _log(f"미사용 이미지 {removed}개 삭제")
+
     elapsed_total = time.perf_counter() - start_time
     train_path = out_dir / "train_list.txt"
     with open(train_path, "w", encoding="utf-8") as f:
@@ -215,7 +238,6 @@ def main():
     _log(f"총 소요 시간: {elapsed_total:.0f}초 ({elapsed_total / 60:.1f}분)")
 
     if args.val_ratio > 0:
-        import random
         random.seed(42)
         shuffled = train_lines.copy()
         random.shuffle(shuffled)

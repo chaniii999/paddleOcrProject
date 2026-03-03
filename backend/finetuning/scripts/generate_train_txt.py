@@ -11,6 +11,7 @@
 import argparse
 import csv
 import os
+import random
 from pathlib import Path
 
 
@@ -59,6 +60,12 @@ def parse_args():
         type=str,
         default=None,
         help="검증셋 파일 경로 (기본: output과 같은 폴더의 val_list.txt)",
+    )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=None,
+        help="최대 샘플 수 (초과 시 랜덤 샘플링). 예: 10000",
     )
     return parser.parse_args()
 
@@ -152,13 +159,17 @@ def main():
             continue
         train_lines.append(f"{img_path}\t{label_escaped}")
 
+    if args.max_samples is not None and len(train_lines) > args.max_samples:
+        random.seed(42)
+        train_lines = random.sample(train_lines, args.max_samples)
+        print(f"[샘플링] {args.max_samples}건으로 제한")
+
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(train_lines))
 
     print(f"train.txt 생성 완료: {out_path} ({len(train_lines)}건)")
 
     if args.val_ratio > 0 and train_lines:
-        import random
         random.seed(42)
         shuffled = train_lines.copy()
         random.shuffle(shuffled)
