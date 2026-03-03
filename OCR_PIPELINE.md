@@ -15,7 +15,7 @@
        ↓
 [스레드] asyncio.to_thread(_run_ocr_sync, tmp_path)
        ↓
-[PDF→이미지] pdf_to_images (Poppler + 리사이즈)
+[PDF→이미지] pdf_to_images (PyMuPDF + 리사이즈)
        ↓
 [OCR 엔진] get_engine() (싱글톤, 최초 1회 로드)
        ↓
@@ -48,9 +48,9 @@
 | 항목 | 내용 |
 |------|------|
 | 파일 | `backend/app/services/pdf_service.py` |
-| 함수 | `pdf_to_images(pdf_path, dpi=150, max_side_len=1280, thread_count=2)` |
-| 의존성 | Poppler (시스템), pdf2image, PIL |
-| 흐름 | 1) `convert_from_path(path, dpi, thread_count)` 로 페이지별 PIL Image 리스트 생성<br>2) 각 이미지에 대해 `_resize_if_large(img, max_side_len)` 적용 (긴 변 > 1280px 이면 비율 유지 리사이즈) |
+| 함수 | `pdf_to_images(pdf_path, dpi=300, max_side_len=960, thread_count=2)` |
+| 의존성 | PyMuPDF, PIL |
+| 흐름 | 1) `fitz.open(path)` → `page.get_pixmap(dpi=dpi)` 로 페이지별 PIL Image 리스트 생성<br>2) 각 이미지에 대해 `_resize_if_large(img, max_side_len)` 적용 (긴 변 > max_side_len 이면 비율 유지 리사이즈) |
 | 출력 | `list[PIL.Image]` (페이지 순서 유지) |
 
 - **dpi 150**: 평문서 위주 속도 고려. 스캔본은 200 등으로 조정 가능.
@@ -128,7 +128,7 @@
 
 | 구간 | 라이브러리 / 시스템 |
 |------|---------------------|
-| PDF → 이미지 | Poppler (pdftoppm 등), pdf2image, Pillow |
+| PDF → 이미지 | PyMuPDF, Pillow |
 | OCR | PaddlePaddle, PaddleOCR (한글 모델) |
 | 서버 | FastAPI, uvicorn |
 

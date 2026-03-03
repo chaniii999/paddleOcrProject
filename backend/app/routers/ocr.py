@@ -2,6 +2,7 @@
 
 import asyncio
 import tempfile
+import time
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -41,18 +42,34 @@ async def ocr_from_pdf(
         tmp_path = tmp.name
 
     try:
+        t0 = time.perf_counter()
         if is_test_mode:
             data = await asyncio.to_thread(run_ocr_with_test_mode, engine, tmp_path)
-            return {
+            elapsed = time.perf_counter() - t0
+            n = len(data["pages"])
+            out = {
                 "ok": True,
                 "pages": data["pages"],
-                "total_pages": len(data["pages"]),
+                "total_pages": n,
                 "test_mode": True,
                 "direct_available": data["direct_available"],
                 "page_results": data["page_results"],
+                "total_elapsed_sec": round(elapsed, 2),
+                "avg_sec_per_page": round(elapsed / n, 2) if n else 0,
             }
+            if data.get("overall_accuracy"):
+                out["overall_accuracy"] = data["overall_accuracy"]
+            return out
         pages = await asyncio.to_thread(run_ocr_sync, engine, tmp_path)
-        return {"ok": True, "pages": pages, "total_pages": len(pages)}
+        elapsed = time.perf_counter() - t0
+        n = len(pages)
+        return {
+            "ok": True,
+            "pages": pages,
+            "total_pages": n,
+            "total_elapsed_sec": round(elapsed, 2),
+            "avg_sec_per_page": round(elapsed / n, 2) if n else 0,
+        }
     except Exception as e:
         return {"ok": False, "error": str(e)}
     finally:

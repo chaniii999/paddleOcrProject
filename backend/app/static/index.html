@@ -469,8 +469,24 @@
 
       function stopTimer() {
         clearInterval(timerId);
-        var sec = Math.floor((Date.now() - startMs) / 1000);
-        elapsedEl.textContent = '경과 시간: ' + sec + '초';
+      }
+
+      function formatElapsed(data) {
+        var parts = [];
+        var clientSec = Math.floor((Date.now() - startMs) / 1000);
+        parts.push('경과 시간: ' + clientSec + '초');
+        if (data.total_elapsed_sec != null && data.avg_sec_per_page != null && data.total_pages > 0) {
+          parts.push('페이지당 평균: ' + data.avg_sec_per_page + '초 (' + data.total_pages + '페이지)');
+        }
+        if (data.overall_accuracy && data.overall_accuracy.overall != null) {
+          var oa = data.overall_accuracy;
+          var accParts = ['전체 평균 인식률: ' + oa.overall + '%'];
+          if (oa.hangul != null) accParts.push('한글 ' + oa.hangul + '%');
+          if (oa.digit != null) accParts.push('숫자 ' + oa.digit + '%');
+          if (oa.alpha != null) accParts.push('영어 ' + oa.alpha + '%');
+          parts.push(accParts.join(' | '));
+        }
+        return parts.join(' · ');
       }
 
       fetch('/api/ocr', { method: 'POST', body: fd })
@@ -479,6 +495,7 @@
           stopTimer();
 
           if (data.ok && data.pages && data.pages.length) {
+            elapsedEl.textContent = formatElapsed(data);
             currentTestPageResults = data.test_mode && data.page_results ? data.page_results : null;
             renderPageTabs(data.pages);
             renderTestModeResult(!!data.test_mode, !!data.direct_available, currentTestPageResults, 0);
@@ -486,15 +503,18 @@
             currentTestPageResults = null;
             testResultWrap.classList.add('hidden');
             result.textContent = '(추출된 페이지 없음)';
+            elapsedEl.textContent = formatElapsed(data);
           } else {
             currentTestPageResults = null;
             testResultWrap.classList.add('hidden');
+            elapsedEl.textContent = '경과 시간: ' + Math.floor((Date.now() - startMs) / 1000) + '초';
             result.textContent = '오류: ' + (data.error || '알 수 없음');
             result.classList.add('error');
           }
         })
         .catch(function (err) {
           stopTimer();
+          elapsedEl.textContent = '경과 시간: ' + Math.floor((Date.now() - startMs) / 1000) + '초';
           result.textContent = '오류: ' + err.message;
           result.classList.add('error');
         });

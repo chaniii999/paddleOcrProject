@@ -46,9 +46,15 @@ def run_ocr_with_test_mode(engine, tmp_path: str) -> dict:
     if not direct_available or not direct_pages:
         return result
 
+    sum_total = {"hangul": 0, "digit": 0, "alpha": 0}
+    sum_correct = {"hangul": 0, "digit": 0, "alpha": 0}
+
     for i, (direct_text, ocr_page) in enumerate(zip(direct_pages, ocr_pages)):
         ocr_text = ocr_page.get("text", "") or ""
         diff_accuracy = compute_diff_accuracy(direct_text, ocr_text)
+        for k in ("hangul", "digit", "alpha"):
+            sum_total[k] += diff_accuracy["total"].get(k, 0)
+            sum_correct[k] += diff_accuracy["correct"].get(k, 0)
         result["page_results"].append({
             "page": i + 1,
             "direct_text": direct_text,
@@ -59,5 +65,20 @@ def run_ocr_with_test_mode(engine, tmp_path: str) -> dict:
             "total": diff_accuracy["total"],
             "correct": diff_accuracy["correct"],
         })
+
+    overall_accuracy = {}
+    for k in ("hangul", "digit", "alpha"):
+        if sum_total[k] > 0:
+            overall_accuracy[k] = round(100.0 * sum_correct[k] / sum_total[k], 1)
+        else:
+            overall_accuracy[k] = None
+    total_chars = sum(sum_total.values())
+    if total_chars > 0:
+        overall_accuracy["overall"] = round(
+            100.0 * sum(sum_correct.values()) / total_chars, 1
+        )
+    else:
+        overall_accuracy["overall"] = None
+    result["overall_accuracy"] = overall_accuracy
 
     return result

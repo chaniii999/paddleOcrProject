@@ -10,7 +10,7 @@
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| PDF → 이미지 | ✅ | pdf2image + Poppler, Windows 경로 자동 탐색 |
+| PDF → 이미지 | ✅ | PyMuPDF (시스템 Poppler 불필요) |
 | OCR 엔진 재사용 | ✅ | 싱글톤 `get_engine()`, 첫 요청 시 1회만 로드 |
 | 블로킹 회피 | ✅ | `asyncio.to_thread(_run_ocr_sync)` |
 | 3GB GPU 대응 | ✅ | max_side_len=1280, use_angle_cls=False, 페이지별 처리 |

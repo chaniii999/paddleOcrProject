@@ -40,9 +40,6 @@ paddleOcrProject/
 ### 2.1 환경 요구사항
 
 - Python 3.10
-- **Poppler**: PDF → 이미지 변환 시 필요 (`pdf2image` 사용 시)
-  - Ubuntu: `sudo apt-get install poppler-utils`
-  - Windows: [Poppler for Windows](https://github.com/osber/poppler-windows/releases) 또는 `winget install oschwartz10612.Poppler`
 - **GPU 사용 시** (NVIDIA): paddlepaddle-gpu 설치
   - **GTX 1060 (Pascal)**: **cu118** 버전 권장. cu129는 검출 실패로 OCR 미동작 가능.
   - Turing/Ampere 이상: cu126 또는 cu129 사용 가능.
@@ -54,7 +51,7 @@ paddleOcrProject/
 - `uvicorn[standard]` - ASGI 서버
 - `paddlepaddle` - Paddle OCR 기반 (CPU 버전)
 - `paddleocr` - OCR 엔진
-- `pdf2image` - PDF 페이지 → 이미지 변환
+- `pymupdf` - PDF → 이미지 변환, 디지털 PDF 텍스트 추출
 - `python-multipart` - 파일 업로드
 - `pillow` - 이미지 처리 (PaddleOCR 의존)
 
@@ -126,7 +123,7 @@ conda --version
    ```
    적용 후 **PowerShell을 새로 열고** `conda --version` 으로 확인.
 
-#### 2) 사전 확인 (GPU·Poppler)
+#### 2) 사전 확인 (GPU)
 
 - **NVIDIA 드라이버 + CUDA**  
   ```powershell
@@ -134,22 +131,7 @@ conda --version
   ```
   상단에 **CUDA Version**이 보이면 됨. **GTX 1060 (Pascal)** 사용 시 cu118 빌드 권장 (드라이버가 13.0이어도 cu118은 하위 호환). 없으면 [NVIDIA 드라이버](https://www.nvidia.com/Download/index.aspx) 및 필요 시 [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) 설치.
 
-- **Poppler** — PDF → 이미지 변환에 필요. 없으면 `Unable to get page count` 오류 발생.  
-  **명령어로 설치 (winget):**
-  ```powershell
-  winget install oschwartz10612.Poppler --source winget --accept-package-agreements --accept-source-agreements
-  ```
-  > msstore 인증서 오류가 나면 `--source winget` 을 넣어서 실행.
-  설치 후 **PowerShell을 새로 열고** `pdftoppm -h` 가 오류 없이 나오면 됨.  
-  winget이 안 되면 [Poppler for Windows](https://github.com/osber/poppler-windows/releases)에서 zip 받아 `bin` 폴더를 PATH에 추가.
-
-  **설치는 됐는데 여전히 `Unable to get page count` 가 나올 때** (PATH에 안 잡힌 경우):  
-  - Poppler이 있는 폴더 찾기 (아래 중 하나로 `pdftoppm.exe` 가 있는 **폴더** 확인):  
-    ```powershell
-    Get-ChildItem -Path "C:\Program Files","$env:LOCALAPPDATA" -Recurse -Filter "pdftoppm.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
-    ```  
-  - 나온 경로(예: `C:\Program Files\Poppler\bin`)를 **사용자 환경 변수** `POPPLER_PATH` 로 설정하거나, 해당 폴더를 시스템 PATH에 추가.  
-  - 이 프로젝트 백엔드는 `POPPLER_PATH` 가 있으면 PATH 없이도 그 경로를 사용함.
+> PDF → 이미지 변환은 **PyMuPDF** 사용으로 시스템 Poppler 설치 불필요.
 
 #### 3) Conda 가상환경 생성·활성화
 
@@ -262,7 +244,7 @@ backend/
 │   │   ├── health.py     # GET /api/health
 │   │   └── ocr.py        # POST /api/ocr/from-pdf
 │   └── services/
-│       ├── pdf_service.py   # pdf_to_images() — pdf2image 사용
+│       ├── pdf_service.py   # pdf_to_images() — PyMuPDF 사용
 │       └── ocr_service.py  # get_ocr_engine(), extract_text_from_image()
 ├── requirements.txt
 └── .env.example

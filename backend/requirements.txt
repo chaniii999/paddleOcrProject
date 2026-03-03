@@ -7,9 +7,6 @@ python-multipart>=0.0.6
 paddlepaddle>=2.5.0,<3.3.0
 paddleocr>=2.7.0
 
-# PDF → 이미지 변환 (시스템에 Poppler 필요: Ubuntu/WSL `sudo apt-get install poppler-utils`)
-pdf2image>=1.16.3
-pillow>=10.0.0
-
-# 디지털 PDF 직접 텍스트 추출 (테스트 모드용)
+# PDF → 이미지 변환 + 디지털 PDF 직접 텍스트 추출 (테스트 모드용)
 pymupdf>=1.23.0
+pillow>=10.0.0

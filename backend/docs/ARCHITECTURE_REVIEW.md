@@ -8,7 +8,7 @@
 | `routers/health.py` | 헬스 체크 | ~10 |
 | `routers/ocr.py` | OCR API + DPI/리사이즈 상수 + `_run_ocr_sync` / `_run_ocr_with_test_mode` | ~118 |
 | `services/ocr_service.py` | 엔진 생성 + 이미지 변환 + **박스 유틸 + 레이아웃 상수 + 줄/문단/들여쓰기** + 추출 | **365** |
-| `services/pdf_service.py` | PDF→이미지, 전처리, 리사이즈, Poppler 경로 | ~112 |
+| `services/pdf_service.py` | PDF→이미지, 전처리, 리사이즈 (PyMuPDF) | ~75 |
 | `services/pdf_direct_service.py` | 직접 추출 + **문자 타입·정규화·diff/정확도 계산** | ~139 |
 
 ---
@@ -53,7 +53,7 @@
 
 ## 4. 성능
 
-- 박스 좌표 일괄 계산, `_join_lines_with_paragraph_gaps` 공통화, Poppler 경로 캐싱 등 이미 적용되어 있어 **현재 구현 기준으로는 큰 이슈 없음**.
+- 박스 좌표 일괄 계산, `_join_lines_with_paragraph_gaps` 공통화 등 이미 적용되어 있어 **현재 구현 기준으로는 큰 이슈 없음**.
 - 상수를 config로 모으면, 나중에 DPI/리사이즈/레이아웃 계수만 바꿔서 실험하기 쉬워져 **튜닝·성능 실험** 측면에서 유리하다.
 
 ---

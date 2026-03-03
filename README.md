@@ -31,13 +31,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8100
 ## 사전 요구사항
 
 - Python 3.10
-- **Poppler** (PDF → 이미지 변환에 필요, 없으면 `Unable to get page count` 오류 발생)
-  - **Ubuntu / WSL**: 터미널에서 실행  
-    ```bash
-    sudo apt-get update && sudo apt-get install -y poppler-utils
-    ```
-  - **Windows**: [Poppler for Windows](https://github.com/osber/poppler-windows/releases) 다운로드 후 `bin` 폴더를 PATH에 추가
-  - 설치 확인: `pdftoppm -h` 또는 `pdfinfo -v` 가 오류 없이 나오면 됨
+- PDF → 이미지 변환은 **PyMuPDF** 사용으로 별도 시스템 설치(Poppler 등) 불필요
 
 ## GPU 사용 (선택)
 
