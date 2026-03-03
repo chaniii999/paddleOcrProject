@@ -40,9 +40,13 @@ paddleOcrProject/
 ### 2.1 환경 요구사항
 
 - Python 3.10
-- (선택) Poppler: PDF → 이미지 변환 시 필요 (`pdf2image` 사용 시)
+- **Poppler**: PDF → 이미지 변환 시 필요 (`pdf2image` 사용 시)
   - Ubuntu: `sudo apt-get install poppler-utils`
-  - Windows: poppler for Windows 배포본 설치 또는 chocolatey
+  - Windows: [Poppler for Windows](https://github.com/osber/poppler-windows/releases) 또는 `winget install oschwartz10612.Poppler`
+- **GPU 사용 시** (NVIDIA): paddlepaddle-gpu 설치
+  - **GTX 1060 (Pascal)**: **cu118** 버전 권장. cu129는 검출 실패로 OCR 미동작 가능.
+  - Turing/Ampere 이상: cu126 또는 cu129 사용 가능.
+  - CUDA 13.0 드라이버여도 cu118 빌드는 하위 호환으로 동작.
 
 ### 2.2 의존성 (requirements.txt)
 
@@ -128,7 +132,7 @@ conda --version
   ```powershell
   nvidia-smi
   ```
-  상단에 **CUDA Version**이 보이면 됨 (예: 12.6, 12.9, 11.8). 없으면 [NVIDIA 드라이버](https://www.nvidia.com/Download/index.aspx) 및 필요 시 [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) 설치.
+  상단에 **CUDA Version**이 보이면 됨. **GTX 1060 (Pascal)** 사용 시 cu118 빌드 권장 (드라이버가 13.0이어도 cu118은 하위 호환). 없으면 [NVIDIA 드라이버](https://www.nvidia.com/Download/index.aspx) 및 필요 시 [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads) 설치.
 
 - **Poppler** — PDF → 이미지 변환에 필요. 없으면 `Unable to get page count` 오류 발생.  
   **명령어로 설치 (winget):**
@@ -169,17 +173,15 @@ conda activate paddle-ocr
 
 #### 4) PaddlePaddle GPU 설치 (CUDA 버전에 맞게 하나만)
 
-**먼저** CPU용 paddlepaddle은 설치하지 않습니다. 아래 중 본인 CUDA 버전에 맞는 명령 **하나만** 실행하세요.
+**먼저** CPU용 paddlepaddle은 설치하지 않습니다. 아래 중 **GTX 1060 (Pascal)은 cu118 권장** (cu129는 검출 실패 가능).
 
 ```powershell
-# CUDA 11.8
+# GTX 1060 (Pascal) 권장 — cu118
 pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu118/
 
-# CUDA 12.6
-pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
-
-# CUDA 12.9
-pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/
+# Turing/Ampere 이상 — cu126 또는 cu129
+# pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+# pip install paddlepaddle-gpu==3.2.2 -i https://www.paddlepaddle.org.cn/packages/stable/cu129/
 ```
 
 #### 5) 나머지 의존성 설치

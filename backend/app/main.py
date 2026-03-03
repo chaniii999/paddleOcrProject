@@ -24,7 +24,10 @@ from app.services.ocr_service import get_ocr_engine
 # 앱 기동 시 OCR 엔진을 한 번 만들고 종료 시 정리 (프로세스/워커당 한 개만 유지).
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.ocr_engine = get_ocr_engine()
+    try:
+        app.state.ocr_engine = get_ocr_engine()
+    except Exception:
+        raise
     try:
         yield
     finally:

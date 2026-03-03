@@ -1,6 +1,8 @@
 """Paddle OCR 엔진 생성 및 이미지→텍스트 추출. 레이아웃 후처리는 ocr_layout."""
 
 import logging
+import tempfile
+from pathlib import Path
 
 import numpy as np
 from paddleocr import PaddleOCR
@@ -24,7 +26,18 @@ def get_ocr_engine(
     rec_char_dict_path: str | None = None,
     rec_batch_num: int = REC_BATCH_NUM_FOR_GPU,
 ):
-    kwargs: dict = {"use_angle_cls": use_angle_cls, "lang": lang}
+    kwargs: dict = {
+        "device": "gpu:0",  # GPU 사용 (cu118 설치 시 GTX 1060에서 동작)
+        "use_angle_cls": use_angle_cls,
+        "lang": lang,
+        "text_rec_score_thresh": 0.0,  # 0=모두 포함
+        "text_det_thresh": 0.2,
+        "text_det_box_thresh": 0.3,
+        "use_doc_orientation_classify": False,
+        "use_doc_unwarping": False,
+        "text_det_limit_side_len": 1280,
+        "text_det_limit_type": "max",
+    }
     if rec_char_dict_path:
         kwargs["rec_char_dict_path"] = rec_char_dict_path
     return PaddleOCR(**kwargs)
@@ -78,15 +91,39 @@ def extract_text_from_image(ocr_engine: PaddleOCR, image) -> str:
         single_char_lines_with_spaces,
     )
 
-    inp = _to_numpy(image)
+    # 파일 경로 전달: dt_polys_len=0 원인으로 numpy 입력 시 파이프라인 내부 처리 이슈 가능. 경로로 전달 시 검출 안정화.
+    use_path = False
+    tmp_path = None
+    try:
+        from PIL import Image
+        if isinstance(image, Image.Image):
+            with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                image.save(tmp.name)
+                inp = tmp.name
+                tmp_path = tmp.name
+                use_path = True
+        else:
+            inp = _to_numpy(image)
+    except Exception:
+        inp = _to_numpy(image)
+
     result = ocr_engine.ocr(inp)
-    if not result or not result[0]:
+    if tmp_path:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    if not result:
+        return ""
+    if not result[0]:
         return ""
 
     raw = result[0]
     if isinstance(raw, dict):
         rec = raw.get("rec_texts") or raw.get("texts") or []
-        if isinstance(rec, list) and rec:
+        if hasattr(rec, "tolist"):
+            rec = rec.tolist()
+        elif not isinstance(rec, list):
+            rec = list(rec) if rec else []
+        if rec:
             return "\n".join(str(t) for t in rec if t)
         return ""
 

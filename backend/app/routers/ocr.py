@@ -30,6 +30,7 @@ async def ocr_from_pdf(
         return {"ok": False, "error": "PDF 파일만 업로드 가능합니다."}
 
     content = await file.read()
+
     if len(content) > MAX_PDF_SIZE_MB * 1024 * 1024:
         return {"ok": False, "error": f"PDF 크기는 {MAX_PDF_SIZE_MB}MB 이하여야 합니다."}
 
